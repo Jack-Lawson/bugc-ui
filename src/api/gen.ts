@@ -1,4 +1,5 @@
 import { request } from '@/utils/request'
+import { buildApiUrl } from '@/config/app'
 
 // 数据库表信息
 export interface DatabaseTable {
@@ -91,7 +92,7 @@ export const genApi = {
 
   // 下载代码
   downloadCode(ids: number[]): string {
-    return `/api/tool/gen/download?ids=${ids.join(',')}`
+    return buildApiUrl(`/tool/gen/download?ids=${ids.join(',')}`)
   },
 
   // 预览将要生成的文件

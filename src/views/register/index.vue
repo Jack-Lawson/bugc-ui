@@ -116,6 +116,7 @@ import { useSiteStore } from '@/stores/site'
 import { useThemeStore } from '@/stores/theme'
 import { authApi } from '@/api/auth'
 import { configGroupApi } from '@/api/org'
+import { siteDefaults } from '@/config/app'
 
 const router = useRouter()
 const message = useMessage()
@@ -123,7 +124,7 @@ const siteStore = useSiteStore()
 const themeStore = useThemeStore()
 
 // 站点配置
-const siteName = computed(() => siteStore.siteName || 'Bugc Admin')
+const siteName = computed(() => siteStore.siteName || siteDefaults.name)
 const siteLogo = computed(() => siteStore.siteLogo)
 const copyright = computed(() => siteStore.copyright || '版权所有 © 成都火星网络科技有限公司 2025-2030')
 

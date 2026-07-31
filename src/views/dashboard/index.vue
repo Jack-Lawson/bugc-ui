@@ -110,7 +110,7 @@
       <n-gi>
         <n-card title="系统信息" class="system-card">
           <n-descriptions :column="1" label-placement="left">
-            <n-descriptions-item label="系统名称">Bugc Admin</n-descriptions-item>
+            <n-descriptions-item label="系统名称">{{ siteDefaults.name }}</n-descriptions-item>
             <n-descriptions-item label="系统版本">v1.0.7</n-descriptions-item>
             <n-descriptions-item label="前端框架">Vue 3.4 + Naive UI</n-descriptions-item>
             <n-descriptions-item label="后端框架">Spring Boot 3.2</n-descriptions-item>
@@ -170,7 +170,7 @@
           <n-divider/>
           <div class="project-info">
             <p class="project-desc">
-              Bugc Admin 是一个基于 Spring Boot 3 + Vue 3 的Be UGC. 一站式综合管理系统，
+              {{ siteDefaults.name }} 是一个基于 Spring Boot 3 + Vue 3 的{{ siteDefaults.description }}，
               采用最新的技术栈，提供完整的权限管理、系统监控等功能。
             </p>
             <div class="project-stats">
@@ -227,6 +227,7 @@ import {
 } from '@vicons/ionicons5'
 import {useUserStore} from '@/stores/user'
 import {dashboardApi} from '@/api/system'
+import { siteDefaults } from '@/config/app'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -250,8 +251,8 @@ function getGreeting() {
 // 轮播Banner数据
 const banners = [
   {
-    title: 'Bugc Admin',
-    subtitle: 'Be UGC. 一站式综合管理系统',
+    title: siteDefaults.name,
+    subtitle: siteDefaults.description,
     bgColor: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
     icon: markRaw(RocketOutline),
     iconColor: 'rgba(255,255,255,0.3)'

@@ -929,6 +929,7 @@ import { configGroupApi, type SysConfigGroup, type SmsLog } from '@/api/org'
 import { fileApi } from '@/api/system'
 import { wechatApi } from '@/api/wechat'
 import { useSiteStore } from '@/stores/site'
+import { createDefaultSystemConfigs, siteDefaults } from '@/config/app'
 
 const message = useMessage()
 const siteStore = useSiteStore()
@@ -940,82 +941,7 @@ const activePushTab = ref('dingtalk')
 const saving = ref(false)
 
 // 所有配置数据
-const configs = reactive<Record<string, any>>({
-  system: { siteName: '', siteDescription: '', siteLogo: '', copyright: '', icp: '', watermarkEnabled: true, watermarkType: 'username', watermarkCustomText: '', watermarkOpacity: 0.1 },
-  register: { enabled: true, verifyEmail: false, verifyPhone: false, defaultRole: 'user', needAudit: false },
-  login: { captchaEnabled: false, captchaType: 'image', maxRetryCount: 5, lockTime: 30, rememberMe: true, singleLogin: false },
-  password: { minLength: 6, maxLength: 20, requireUppercase: false, requireLowercase: false, requireNumber: false, requireSpecial: false, expireDays: 0 },
-  email: { host: '', port: 465, username: '', password: '', fromName: '', ssl: true, enabled: false },
-  emailTemplate: { verifyCode: '', resetPassword: '', welcome: '' },
-  sms: { provider: 'aliyun', accessKeyId: '', accessKeySecret: '', signName: '', tencentAppId: '', templateVerifyCode: '', templateResetPassword: '', templateNotice: '', enabled: false },
-  smsTemplate: { verifyCode: '', resetPassword: '', notification: '' },
-  storage: {
-    provider: 'local',
-    domain: 'http://localhost:8080',
-    localPath: './uploads',
-    maxSize: 10,
-    allowTypes: 'jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,md,mp4,avi,mov,wmv,flv,mkv,mp3,wav,ogg,zip,rar,7z',
-    // MinIO配置
-    minioEndpoint: '',
-    minioAccessKey: '',
-    minioSecretKey: '',
-    minioBucket: '',
-    // 阿里云OSS配置
-    aliyunEndpoint: '',
-    aliyunAccessKey: '',
-    aliyunSecretKey: '',
-    aliyunBucket: '',
-    // 腾讯云COS配置
-    tencentSecretId: '',
-    tencentSecretKey: '',
-    tencentBucket: '',
-    tencentRegion: '',
-    // RustFS配置
-    rustfsEndpoint: '',
-    rustfsAccessKey: '',
-    rustfsSecretKey: '',
-    rustfsBucket: ''
-  },
-  push: {
-    dingtalk: { signName: '', tokenId: '' },
-    feishu: { signName: '', tokenId: '' },
-    wechat_work: { signName: '', tokenId: '' }
-  },
-  thirdParty: {
-    wechat: { enabled: false, appId: '', appSecret: '' },
-    alipay: { enabled: false, appId: '', privateKey: '', publicKey: '' },
-    github: { enabled: false, clientId: '', clientSecret: '' }
-  },
-  wechatMiniProgram: {
-    enabled: false,
-    appId: '',
-    appSecret: ''
-  },
-  wechatMp: {
-    enabled: false,
-    appId: '',
-    appSecret: '',
-    token: '',
-    aesKey: '',
-    callbackUrl: '',
-    oauthRedirectUrl: '',
-    menuConfig: ''
-  },
-  payment: {
-    wechatPay: { enabled: false, mchId: '', appId: '', apiV3Key: '', privateKey: '', certSerialNo: '', notifyUrl: '' },
-    alipay: { enabled: false, appId: '', privateKey: '', publicKey: '', signType: 'RSA2', gatewayUrl: 'https://openapi.alipay.com/gateway.do', notifyUrl: '', returnUrl: '' }
-  },
-  security: {
-    encryptEnabled: false, encryptScope: 'partial', encryptPublicKey: '', encryptPrivateKey: '', xssFilter: true, sqlInject: true,
-    disableDevtool: false, // 前端禁止调试
-    // Token 配置
-    tokenName: 'Authorization', tokenTimeout: 86400, tokenActiveTimeout: 86400,
-    tokenIsConcurrent: true, tokenIsShare: true, tokenStyle: 'uuid',
-    tokenIsLog: false, tokenIsReadBody: false, tokenIsReadCookie: false,
-    tokenIsReadHeader: true, tokenIsPrint: true, tokenIsWriteHeader: false
-  },
-  other: {}
-})
+const configs = reactive<Record<string, any>>(createDefaultSystemConfigs())
 
 // 选项数据
 const captchaTypeOptions = [
@@ -1629,15 +1555,15 @@ async function handleSave() {
     // 如果是系统配置，立即更新站点信息和水印配置
     if (activeTab.value === 'system') {
       // 直接更新 store 值，让水印立即生效
-      siteStore.siteName = configs.system.siteName || 'Bugc Admin'
+      siteStore.siteName = configs.system.siteName || siteDefaults.name
       siteStore.siteDescription = configs.system.siteDescription || ''
       siteStore.siteLogo = configs.system.siteLogo || ''
       siteStore.copyright = configs.system.copyright || ''
       siteStore.icp = configs.system.icp || ''
       siteStore.watermarkEnabled = configs.system.watermarkEnabled !== false
-      siteStore.watermarkType = configs.system.watermarkType || 'username'
-      siteStore.watermarkCustomText = configs.system.watermarkCustomText || ''
-      siteStore.watermarkOpacity = configs.system.watermarkOpacity || 0.1
+      siteStore.watermarkType = configs.system.watermarkType || siteDefaults.watermarkType
+      siteStore.watermarkCustomText = configs.system.watermarkCustomText || siteDefaults.watermarkCustomText
+      siteStore.watermarkOpacity = configs.system.watermarkOpacity || siteDefaults.watermarkOpacity
     }
   } catch (error) {
     // 错误已在拦截器处理

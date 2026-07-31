@@ -374,6 +374,7 @@ import MessageNotification from '@/components/MessageNotification.vue'
 import TabBar from '@/components/TabBar.vue'
 import { noticeApi, chatApi, type SysNotice, type ChatMessage } from '@/api/message'
 import { iconMap as externalIconMap } from '@/utils/icons'
+import { siteDefaults } from '@/config/app'
 
 const route = useRoute()
 const router = useRouter()
@@ -385,7 +386,7 @@ const siteStore = useSiteStore()
 const themeStore = useThemeStore()
 
 // 站点配置
-const siteName = computed(() => siteStore.siteName || 'Bugc Admin')
+const siteName = computed(() => siteStore.siteName || siteDefaults.name)
 const siteLogo = computed(() => siteStore.siteLogo)
 
 // 注册全局message

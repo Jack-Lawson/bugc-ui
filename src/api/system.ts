@@ -1,4 +1,5 @@
 import { request } from '@/utils/request'
+import { buildApiUrl } from '@/config/app'
 
 // 分页结果
 export interface PageResult<T> {
@@ -390,11 +391,11 @@ export const fileApi = {
   },
   
   getDownloadUrl(id: number): string {
-    return `/api/sys/file/download/${id}`
+    return buildApiUrl(`/sys/file/download/${id}`)
   },
   
   getPreviewUrl(id: number): string {
-    return `/api/sys/file/preview/${id}`
+    return buildApiUrl(`/sys/file/preview/${id}`)
   },
 
   getTextContent(id: number): Promise<string> {

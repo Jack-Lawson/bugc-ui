@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { useSiteStore } from '@/stores/site'
 import type { MenuInfo } from '@/api/auth'
+import { siteDefaults } from '@/config/app'
 
 // 动态导入所有页面组件
 const modules = import.meta.glob('/src/views/**/*.vue')
@@ -306,8 +308,10 @@ export function resetRouter() {
 // 路由守卫
 router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore()
+  const siteStore = useSiteStore()
+  const siteName = siteStore.siteName || siteDefaults.name
 
-  document.title = `${to.meta.title || ''} - Bugc Admin`
+  document.title = `${to.meta.title || ''} - ${siteName}`
 
   if (to.meta.requiresAuth === false) {
     next()

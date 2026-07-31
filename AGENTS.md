@@ -5,6 +5,7 @@
 - 识别类型：frontend
 - 检查脚本保留在当前项目目录内。
 - 新增工具前，优先沿用项目已有约定。
+- 新增或修改代码注释时，统一使用中文。
 
 ## 必要检查
 
@@ -14,7 +15,7 @@
 ## Git 提交规则
 
 - 提交前先查看变更范围，确认没有混入无关文件、构建产物或本地配置。
-- 提交信息使用 Conventional Commits：`type(scope): subject`。
+- 提交信息使用 Conventional Commits：`type(scope): 中文提交说明`，提交说明必须使用中文。
 - 常用类型：`feat`、`fix`、`docs`、`style`、`refactor`、`test`、`chore`、`build`、`ci`、`perf`、`revert`。
 - 每个提交只做一件逻辑完整的事；格式化、重构、功能、修复尽量拆开。
 - 修改 `.gitignore` 后，确认新增规则不会误忽略应提交的源码、锁文件、配置模板或文档。

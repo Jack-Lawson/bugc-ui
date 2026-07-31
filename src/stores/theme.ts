@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { darkTheme, type GlobalTheme } from 'naive-ui'
+import { storageKeys, themeDefaults } from '@/config/app'
 
 // 预设主题色
 export const themeColors = [
@@ -27,29 +28,34 @@ export const themeColors = [
 ]
 
 export const useThemeStore = defineStore('theme', () => {
+  const getStoredBoolean = (key: string, defaultValue: boolean) => {
+    const value = localStorage.getItem(key)
+    return value == null ? defaultValue : value === 'true'
+  }
+
   // 主题模式: dark / light
   const mode = ref<'dark' | 'light'>(
-    (localStorage.getItem('layout-theme') as 'dark' | 'light') || 'light'
+    (localStorage.getItem(storageKeys.layoutTheme) as 'dark' | 'light') || themeDefaults.mode
   )
 
   // 菜单位置
   const siderPosition = ref<'left' | 'right' | 'top'>(
-    (localStorage.getItem('layout-position') as 'left' | 'right' | 'top') || 'left'
+    (localStorage.getItem(storageKeys.layoutPosition) as 'left' | 'right' | 'top') || themeDefaults.siderPosition
   )
 
   // 是否显示页签
   const showTabs = ref<boolean>(
-    localStorage.getItem('layout-show-tabs') !== 'false'
+    getStoredBoolean(storageKeys.layoutShowTabs, themeDefaults.showTabs)
   )
 
   // 主题色
   const primaryColor = ref<string>(
-    localStorage.getItem('layout-primary-color') || '#111827'
+    localStorage.getItem(storageKeys.layoutPrimaryColor) || themeDefaults.primaryColor
   )
 
   // 顶栏是否应用主题色
   const headerUsePrimaryColor = ref<boolean>(
-    localStorage.getItem('layout-header-primary') === 'true'
+    getStoredBoolean(storageKeys.layoutHeaderPrimary, themeDefaults.headerUsePrimaryColor)
   )
 
   // 是否是暗色主题
@@ -63,7 +69,7 @@ export const useThemeStore = defineStore('theme', () => {
   // 设置主题
   function setMode(newMode: 'dark' | 'light') {
     mode.value = newMode
-    localStorage.setItem('layout-theme', newMode)
+    localStorage.setItem(storageKeys.layoutTheme, newMode)
     // 更新 body 类名
     updateBodyClass()
   }
@@ -71,19 +77,19 @@ export const useThemeStore = defineStore('theme', () => {
   // 设置菜单位置
   function setSiderPosition(position: 'left' | 'right' | 'top') {
     siderPosition.value = position
-    localStorage.setItem('layout-position', position)
+    localStorage.setItem(storageKeys.layoutPosition, position)
   }
 
   // 设置是否显示页签
   function setShowTabs(show: boolean) {
     showTabs.value = show
-    localStorage.setItem('layout-show-tabs', String(show))
+    localStorage.setItem(storageKeys.layoutShowTabs, String(show))
   }
 
   // 设置主题色
   function setPrimaryColor(color: string) {
     primaryColor.value = color
-    localStorage.setItem('layout-primary-color', color)
+    localStorage.setItem(storageKeys.layoutPrimaryColor, color)
     // 设置 CSS 变量，用于顶栏主题色
     document.documentElement.style.setProperty('--primary-color', color)
   }
@@ -91,7 +97,7 @@ export const useThemeStore = defineStore('theme', () => {
   // 设置顶栏是否应用主题色
   function setHeaderUsePrimaryColor(use: boolean) {
     headerUsePrimaryColor.value = use
-    localStorage.setItem('layout-header-primary', String(use))
+    localStorage.setItem(storageKeys.layoutHeaderPrimary, String(use))
   }
 
   // 更新 body 类名

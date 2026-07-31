@@ -1,5 +1,6 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios'
 import { useUserStore } from '@/stores/user'
+import { apiConfig, joinUrl } from '@/config/app'
 
 // API响应结构
 interface ApiResponse<T = any> {
@@ -24,7 +25,7 @@ export async function fetchCryptoConfig(): Promise<CryptoConfig> {
     return cryptoConfigCache
   }
   try {
-    const response = await axios.get('/api/crypto/config')
+    const response = await axios.get(joinUrl(apiConfig.baseUrl, apiConfig.cryptoConfigPath))
     if (response.data?.code === 200) {
       cryptoConfigCache = response.data.data
       return cryptoConfigCache!
@@ -112,8 +113,8 @@ async function decryptResponseData(data: string): Promise<any> {
 // 创建axios实例
 // 后端 API 统一使用 /api 前缀
 const service: AxiosInstance = axios.create({
-  baseURL: '/api',
-  timeout: 30000
+  baseURL: apiConfig.baseUrl,
+  timeout: apiConfig.timeout
 })
 
 // 请求拦截器

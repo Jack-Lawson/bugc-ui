@@ -350,6 +350,7 @@ import { useSiteStore } from '@/stores/site'
 import { useThemeStore } from '@/stores/theme'
 import { authApi } from '@/api/auth'
 import { configGroupApi } from '@/api/org'
+import { authConfig, siteDefaults, storageKeys } from '@/config/app'
 
 const router = useRouter()
 const route = useRoute()
@@ -359,8 +360,8 @@ const siteStore = useSiteStore()
 const themeStore = useThemeStore()
 
 // 站点配置（带默认值）
-const siteName = computed(() => siteStore.siteName || 'Bugc Admin')
-const siteDescription = computed(() => siteStore.siteDescription || 'Be UGC. 一站式综合管理系统')
+const siteName = computed(() => siteStore.siteName || siteDefaults.name)
+const siteDescription = computed(() => siteStore.siteDescription || siteDefaults.description)
 const siteLogo = computed(() => siteStore.siteLogo)
 const copyright = computed(() => siteStore.copyright || '版权所有 © 成都火星网络科技有限公司 2025-2030')
 
@@ -394,8 +395,10 @@ const smsCountdown = ref(0)
 async function loadPublicConfig() {
   try {
     const config = await configGroupApi.getPublicConfig()
+    const stopVerify = authConfig.stopVerify ?? config.login?.stopVerify !== false
+
     stopLogin.value = config.login?.stopLogin || false
-    captchaEnabled.value = !stopLogin.value && (config.login?.captchaEnabled || false)
+    captchaEnabled.value = !stopLogin.value && stopVerify && (config.login?.captchaEnabled || false)
     captchaType.value = config.login?.captchaType || 'image'
     rememberMeEnabled.value = config.login?.rememberMe !== false
     registerEnabled.value = config.register?.enabled !== false
@@ -530,11 +533,11 @@ const styles = [
 ]
 
 // 当前样式
-const currentStyle = ref(parseInt(localStorage.getItem('login-style') || '1'))
+const currentStyle = ref(parseInt(localStorage.getItem(storageKeys.loginStyle) || '1'))
 
 function switchStyle(style: number) {
   currentStyle.value = style
-  localStorage.setItem('login-style', style.toString())
+  localStorage.setItem(storageKeys.loginStyle, style.toString())
 }
 
 const formRef = ref<FormInst | null>(null)

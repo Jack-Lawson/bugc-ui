@@ -590,6 +590,7 @@ import { chatApi, groupChatApi, type ChatMessage, type ChatUser, type ChatGroup,
 import { fileApi } from '@/api/system'
 import { useUserStore } from '@/stores/user'
 import { wsManager } from '@/utils/websocket'
+import { storageKeys } from '@/config/app'
 
 const route = useRoute()
 const message = useMessage()
@@ -648,12 +649,12 @@ const showBlockConfirm = ref(false)
 const messageSearchKeyword = ref('')
 
 // 侧边栏拖拽调整
-const sidebarWidth = ref(parseInt(localStorage.getItem('chat-sidebar-width') || '260'))
+const sidebarWidth = ref(parseInt(localStorage.getItem(storageKeys.chatSidebarWidth) || '260'))
 const isResizing = ref(false)
 
 // 卡片大小拖拽调整
-const cardWidth = ref(parseInt(localStorage.getItem('chat-card-width') || '1000'))
-const cardHeight = ref(parseInt(localStorage.getItem('chat-card-height') || '600'))
+const cardWidth = ref(parseInt(localStorage.getItem(storageKeys.chatCardWidth) || '1000'))
+const cardHeight = ref(parseInt(localStorage.getItem(storageKeys.chatCardHeight) || '600'))
 
 // 表情相关
 const inputRef = ref<any>(null)
@@ -675,7 +676,7 @@ const defaultQuickReplies = [
   '祝你工作顺利！'
 ]
 const quickReplies = ref<string[]>(
-  JSON.parse(localStorage.getItem('chat-quick-replies') || 'null') || defaultQuickReplies
+  JSON.parse(localStorage.getItem(storageKeys.chatQuickReplies) || 'null') || defaultQuickReplies
 )
 const emojiGroups = [
   {
@@ -939,7 +940,7 @@ function saveQuickReplies() {
     .filter(s => s.length > 0)
     .slice(0, 20)
   quickReplies.value = lines
-  localStorage.setItem('chat-quick-replies', JSON.stringify(lines))
+  localStorage.setItem(storageKeys.chatQuickReplies, JSON.stringify(lines))
   showQuickReplyEdit.value = false
   message.success('快捷语保存成功')
 }
@@ -1245,7 +1246,7 @@ function startResize(e: MouseEvent) {
   
   const onMouseUp = () => {
     isResizing.value = false
-    localStorage.setItem('chat-sidebar-width', sidebarWidth.value.toString())
+    localStorage.setItem(storageKeys.chatSidebarWidth, sidebarWidth.value.toString())
     document.removeEventListener('mousemove', onMouseMove)
     document.removeEventListener('mouseup', onMouseUp)
     document.body.style.cursor = ''
@@ -1277,8 +1278,8 @@ function startCardResize(e: MouseEvent) {
   }
   
   const onMouseUp = () => {
-    localStorage.setItem('chat-card-width', cardWidth.value.toString())
-    localStorage.setItem('chat-card-height', cardHeight.value.toString())
+    localStorage.setItem(storageKeys.chatCardWidth, cardWidth.value.toString())
+    localStorage.setItem(storageKeys.chatCardHeight, cardHeight.value.toString())
     document.removeEventListener('mousemove', onMouseMove)
     document.removeEventListener('mouseup', onMouseUp)
     document.body.style.cursor = ''

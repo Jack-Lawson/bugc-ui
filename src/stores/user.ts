@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi, type LoginParams, type UserInfo, type MenuInfo } from '@/api/auth'
 import router, { resetRouter } from '@/router'
+import { storageKeys } from '@/config/app'
 
 export const useUserStore = defineStore('user', () => {
   // 状态
@@ -91,7 +92,7 @@ export const useUserStore = defineStore('user', () => {
   }
 }, {
   persist: {
-    key: 'mars-user',
+    key: storageKeys.user,
     paths: ['token']
   }
 })

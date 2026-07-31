@@ -6,6 +6,7 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useSiteStore } from '@/stores/site'
 import { useUserStore } from '@/stores/user'
+import { siteDefaults } from '@/config/app'
 
 const siteStore = useSiteStore()
 const userStore = useUserStore()
@@ -28,9 +29,9 @@ const watermarkText = computed(() => {
       const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
       return `${username} ${dateStr}`
     case 'sitename':
-      return siteStore.siteName || 'Bugc Admin'
+      return siteStore.siteName || siteDefaults.name
     case 'custom':
-      return siteStore.watermarkCustomText || siteStore.siteName || 'Bugc Admin'
+      return siteStore.watermarkCustomText || siteStore.siteName || siteDefaults.name
     default:
       return username
   }
@@ -51,7 +52,7 @@ function createWatermark() {
   canvas.height = height
   
   // 设置水印样式 - 透明度范围 0.05 ~ 0.5，配置值需要放大
-  const configOpacity = siteStore.watermarkOpacity || 0.1
+  const configOpacity = siteStore.watermarkOpacity || siteDefaults.watermarkOpacity
   const opacity = Math.max(0.08, Math.min(0.5, configOpacity * 1.5))
   ctx.font = '16px Arial, sans-serif'
   ctx.fillStyle = `rgba(100, 100, 100, ${opacity})`

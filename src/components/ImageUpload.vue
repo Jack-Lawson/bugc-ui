@@ -19,6 +19,7 @@
 import { ref, computed, watch } from 'vue'
 import { type UploadFileInfo } from 'naive-ui'
 import { useUserStore } from '@/stores/user'
+import { buildApiUrl } from '@/config/app'
 
 const props = defineProps<{
   modelValue?: string
@@ -30,7 +31,7 @@ const emit = defineEmits<{
 
 const userStore = useUserStore()
 
-const uploadUrl = '/api/sys/file/upload/image'
+const uploadUrl = buildApiUrl('/sys/file/upload/image')
 const headers = computed(() => ({
   'Authorization': userStore.token || ''
 }))

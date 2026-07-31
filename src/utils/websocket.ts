@@ -1,4 +1,5 @@
 import { useUserStore } from '@/stores/user'
+import { buildWebSocketUrl, websocketConfig } from '@/config/app'
 
 type MessageHandler = (data: any) => void
 
@@ -29,9 +30,7 @@ class WebSocketManager {
       return
     }
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const host = window.location.host
-    const url = `${protocol}//${host}/ws/message?token=${userStore.token}`
+    const url = buildWebSocketUrl(websocketConfig.messagePath, { token: userStore.token })
 
     console.log('[WebSocket] 正在连接...')
     this.ws = new WebSocket(url)
