@@ -11,7 +11,7 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: resolve(__dirname, '../bugc-starter/src/main/resources/static'),
+    outDir: resolve(__dirname, '../bugc-manage/bugc-starter/src/main/resources/static'),
     emptyOutDir: true
   },
   server: {
