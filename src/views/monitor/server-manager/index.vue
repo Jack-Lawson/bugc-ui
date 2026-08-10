@@ -335,6 +335,20 @@ async function handleTest(server: Server) {
 async function handleTestForm() {
   testingForm.value = true
   try {
+    if (editingServer.value && formData.value.authType === editingServer.value.authType) {
+      const emptyPassword = formData.value.authType === 1 && !formData.value.password
+      const emptyPrivateKey = formData.value.authType === 2 && !formData.value.privateKey
+      if (emptyPassword || emptyPrivateKey) {
+        const success = await serverApi.testConnection(editingServer.value.id!)
+        if (success) {
+          message.success('连接成功')
+        } else {
+          message.error('连接失败，请检查已保存配置')
+        }
+        return
+      }
+    }
+
     const success = await serverApi.testConnectionByParams({
       host: formData.value.host,
       port: formData.value.port,

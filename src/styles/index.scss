@@ -368,7 +368,9 @@ body.dark-theme {
 
   // ==================== 登录页面暗黑模式 ====================
   .login-page {
-    background: #101014 !important;
+    background:
+      radial-gradient(circle at 34% 38%, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 34%),
+      linear-gradient(135deg, #6c8cf1 0%, #7e82ed 48%, #a66ee2 100%) !important;
   }
 
   // 样式一暗黑模式

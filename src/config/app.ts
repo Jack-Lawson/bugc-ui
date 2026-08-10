@@ -153,6 +153,7 @@ export const themeDefaults = {
 
 export const storageKeys = {
   user: 'mars-user',
+  userToken: 'mars-user-token',
   layoutTheme: 'layout-theme',
   layoutPosition: 'layout-position',
   layoutShowTabs: 'layout-show-tabs',

@@ -9,12 +9,34 @@
         </n-space>
       </div>
       <!-- Tab 导航 -->
-      <n-tabs v-model:value="activeTab" type="line" animated @update:value="handleTabChange">
-        <n-tab-pane v-for="group in configGroups" :key="group.groupCode" :name="group.groupCode" :tab="group.groupName">
-          <div class="config-content">
+      <div
+        ref="configTabsHost"
+        class="config-tabs-host"
+        :class="{ 'config-tabs-host--scrollable': showConfigTabsControls }"
+        @wheel="handleConfigTabsWheel"
+        @scroll.capture="handleConfigTabsNativeScroll"
+      >
+        <n-tabs v-model:value="activeTab" class="config-tabs" type="line" animated @update:value="handleTabChange">
+          <template v-if="showConfigTabsControls" #prefix>
+            <n-button
+              quaternary
+              circle
+              size="small"
+              title="向左滚动"
+              :disabled="!canScrollConfigTabsLeft"
+              @click.stop="scrollConfigTabs('left')"
+            >
+              <template #icon>
+                <n-icon><ChevronBackOutline /></n-icon>
+              </template>
+            </n-button>
+          </template>
+          <n-tab-pane v-for="group in configGroups" :key="group.groupCode" :name="group.groupCode" :tab="group.groupName">
+            <div class="config-content">
             <!-- 系统配置 -->
             <template v-if="group.groupCode === 'system'">
               <n-form :model="configs.system" label-placement="left" label-width="120">
+                <div class="config-section-title">站点管理</div>
                 <n-form-item label="站点名称">
                   <n-input v-model:value="configs.system.siteName" placeholder="请输入站点名称" />
                 </n-form-item>
@@ -50,6 +72,7 @@
                   <n-input v-model:value="configs.system.icp" placeholder="请输入ICP备案号" />
                 </n-form-item>
                 <n-divider />
+                <div class="config-section-title">水印管理</div>
                 <n-form-item label="启用水印">
                   <n-switch v-model:value="configs.system.watermarkEnabled" />
                   <span class="form-hint">开启后页面将显示用户名水印</span>
@@ -63,6 +86,86 @@
                 <n-form-item label="水印透明度" v-if="configs.system.watermarkEnabled">
                   <n-slider v-model:value="configs.system.watermarkOpacity" :min="0.01" :max="0.3" :step="0.01" style="width: 200px" />
                   <span class="form-hint" style="margin-left: 12px">{{ (configs.system.watermarkOpacity * 100).toFixed(0) }}%</span>
+                </n-form-item>
+                <n-divider />
+                <div class="config-section-title">样式管理</div>
+                <n-form-item label="菜单位置">
+                  <div class="layout-options">
+                    <div
+                      class="layout-option"
+                      :class="{ active: themeStore.siderPosition === 'left' }"
+                      @click="themeStore.setSiderPosition('left')"
+                    >
+                      <div class="layout-preview layout-left">
+                        <div class="preview-sider"></div>
+                        <div class="preview-main"></div>
+                      </div>
+                      <span>左侧菜单</span>
+                    </div>
+                    <div
+                      class="layout-option"
+                      :class="{ active: themeStore.siderPosition === 'right' }"
+                      @click="themeStore.setSiderPosition('right')"
+                    >
+                      <div class="layout-preview layout-right">
+                        <div class="preview-main"></div>
+                        <div class="preview-sider"></div>
+                      </div>
+                      <span>右侧菜单</span>
+                    </div>
+                    <div
+                      class="layout-option"
+                      :class="{ active: themeStore.siderPosition === 'top' }"
+                      @click="themeStore.setSiderPosition('top')"
+                    >
+                      <div class="layout-preview layout-top">
+                        <div class="preview-header"></div>
+                        <div class="preview-content"></div>
+                      </div>
+                      <span>顶部菜单</span>
+                    </div>
+                  </div>
+                </n-form-item>
+                <n-form-item label="主题风格">
+                  <div class="theme-modes">
+                    <div
+                      v-for="theme in themeOptions"
+                      :key="theme.value"
+                      class="theme-mode"
+                      :class="{ active: themeStore.mode === theme.value }"
+                      @click="themeStore.setMode(theme.value)"
+                    >
+                      <div class="theme-mode-preview" :style="{ background: theme.color }">
+                        <n-icon v-if="themeStore.mode === theme.value" :color="theme.value === 'light' ? '#18a058' : '#fff'">
+                          <CheckmarkOutline />
+                        </n-icon>
+                      </div>
+                      <span>{{ theme.label }}</span>
+                    </div>
+                  </div>
+                </n-form-item>
+                <n-form-item label="主题色">
+                  <div class="color-options">
+                    <div
+                      v-for="item in themeColors"
+                      :key="item.color"
+                      class="color-option"
+                      :class="{ active: themeStore.primaryColor === item.color }"
+                      :style="{ backgroundColor: item.color }"
+                      :title="item.name"
+                      @click="themeStore.setPrimaryColor(item.color)"
+                    >
+                      <n-icon v-if="themeStore.primaryColor === item.color" color="#fff">
+                        <CheckmarkOutline />
+                      </n-icon>
+                    </div>
+                  </div>
+                </n-form-item>
+                <n-form-item label="顶栏主题色">
+                  <n-switch :value="themeStore.headerUsePrimaryColor" @update:value="themeStore.setHeaderUsePrimaryColor" size="small" />
+                </n-form-item>
+                <n-form-item label="显示页签">
+                  <n-switch :value="themeStore.showTabs" @update:value="themeStore.setShowTabs" size="small" />
                 </n-form-item>
               </n-form>
             </template>
@@ -879,9 +982,24 @@
             <template v-else-if="group.groupCode === 'other'">
               <n-empty description="暂无其他配置项" />
             </template>
-          </div>
-        </n-tab-pane>
-      </n-tabs>
+            </div>
+          </n-tab-pane>
+          <template v-if="showConfigTabsControls" #suffix>
+            <n-button
+              quaternary
+              circle
+              size="small"
+              title="向右滚动"
+              :disabled="!canScrollConfigTabsRight"
+              @click.stop="scrollConfigTabs('right')"
+            >
+              <template #icon>
+                <n-icon><ChevronForwardOutline /></n-icon>
+              </template>
+            </n-button>
+          </template>
+        </n-tabs>
+      </div>
     </n-card>
 
     <!-- 短信记录模态框 -->
@@ -922,23 +1040,39 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, watch, h } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed, watch, h } from 'vue'
 import { useMessage, type UploadCustomRequestOptions } from 'naive-ui'
-import { ImageOutline, CloseOutline, AddOutline, TrashOutline } from '@vicons/ionicons5'
+import {
+  ImageOutline,
+  CloseOutline,
+  AddOutline,
+  TrashOutline,
+  CheckmarkOutline,
+  ChevronBackOutline,
+  ChevronForwardOutline
+} from '@vicons/ionicons5'
 import { configGroupApi, type SysConfigGroup, type SmsLog } from '@/api/org'
 import { fileApi } from '@/api/system'
 import { wechatApi } from '@/api/wechat'
 import { useSiteStore } from '@/stores/site'
+import { useThemeStore, themeColors } from '@/stores/theme'
 import { createDefaultSystemConfigs, siteDefaults } from '@/config/app'
 
 const message = useMessage()
 const siteStore = useSiteStore()
+const themeStore = useThemeStore()
 
 // 配置分组列表
 const configGroups = ref<SysConfigGroup[]>([])
 const activeTab = ref('system')
 const activePushTab = ref('dingtalk')
 const saving = ref(false)
+const configTabsHost = ref<HTMLElement | null>(null)
+const tabsScrollMax = ref(0)
+const tabsScrollValue = ref(0)
+const showConfigTabsControls = computed(() => configGroups.value.length > 8 || tabsScrollMax.value > 0)
+const canScrollConfigTabsLeft = computed(() => tabsScrollValue.value > 2)
+const canScrollConfigTabsRight = computed(() => tabsScrollValue.value < tabsScrollMax.value - 2)
 
 // 所有配置数据
 const configs = reactive<Record<string, any>>(createDefaultSystemConfigs())
@@ -955,6 +1089,11 @@ const watermarkTypeOptions = [
   { label: '用户名+时间', value: 'username_time' },
   { label: '站点名称', value: 'sitename' },
   { label: '自定义文本', value: 'custom' }
+]
+
+const themeOptions = [
+  { value: 'dark' as const, color: '#001529', label: '暗色主题' },
+  { value: 'light' as const, color: '#ffffff', label: '亮色主题' }
 ]
 
 const smsProviderOptions = [
@@ -1499,9 +1638,79 @@ async function loadGroups() {
       activeTab.value = configGroups.value[0].groupCode
       await loadConfig(activeTab.value)
     }
+    syncConfigTabsScroll()
   } catch (error) {
     // 错误已在拦截器处理
   }
+}
+
+function getConfigTabsScrollEl() {
+  const root = configTabsHost.value
+  if (!root) return null
+
+  return (
+    root.querySelector('.v-x-scroll') ||
+    root.querySelector('.n-tabs-nav-scroll-wrapper') ||
+    root.querySelector('.n-tabs-wrapper')
+  ) as HTMLElement | null
+}
+
+async function syncConfigTabsScroll() {
+  await nextTick()
+  const scrollEl = getConfigTabsScrollEl()
+  if (!scrollEl) {
+    tabsScrollMax.value = 0
+    tabsScrollValue.value = 0
+    return
+  }
+
+  const navContent = configTabsHost.value?.querySelector('.n-tabs-nav-scroll-content') as HTMLElement | null
+  const overflowWidth = navContent ? navContent.scrollWidth - scrollEl.clientWidth : scrollEl.scrollWidth - scrollEl.clientWidth
+
+  tabsScrollMax.value = Math.max(0, overflowWidth)
+  tabsScrollValue.value = Math.min(scrollEl.scrollLeft, tabsScrollMax.value)
+}
+
+function updateConfigTabsScroll(value: number) {
+  const scrollEl = getConfigTabsScrollEl()
+  if (!scrollEl) return
+
+  const nextValue = Math.min(tabsScrollMax.value, Math.max(0, value))
+  scrollEl.scrollTo({ left: nextValue, behavior: 'smooth' })
+  tabsScrollValue.value = nextValue
+  window.setTimeout(() => {
+    tabsScrollValue.value = scrollEl.scrollLeft
+  }, 220)
+}
+
+function scrollConfigTabs(direction: 'left' | 'right') {
+  const scrollEl = getConfigTabsScrollEl()
+  if (!scrollEl) return
+
+  const step = Math.max(120, Math.floor(scrollEl.clientWidth * 0.3))
+  updateConfigTabsScroll(scrollEl.scrollLeft + (direction === 'left' ? -step : step))
+}
+
+function handleConfigTabsWheel(event: WheelEvent) {
+  const scrollEl = getConfigTabsScrollEl()
+  if (!scrollEl || tabsScrollMax.value <= 0) return
+
+  if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) {
+    return
+  }
+
+  const delta = event.deltaX
+  if (delta === 0) return
+
+  updateConfigTabsScroll(scrollEl.scrollLeft + delta)
+  event.preventDefault()
+}
+
+function handleConfigTabsNativeScroll() {
+  const scrollEl = getConfigTabsScrollEl()
+  if (!scrollEl) return
+
+  tabsScrollValue.value = Math.min(scrollEl.scrollLeft, tabsScrollMax.value)
 }
 
 // 深度合并对象（保持响应性）
@@ -1543,6 +1752,7 @@ async function loadConfig(groupCode: string) {
 // Tab 切换
 async function handleTabChange(tab: string) {
   await loadConfig(tab)
+  syncConfigTabsScroll()
 }
 
 // 保存配置
@@ -1602,6 +1812,11 @@ async function handleLogoUpload(options: UploadCustomRequestOptions) {
 onMounted(() => {
   loadGroups()
   loadRecentSmsLogs()
+  window.addEventListener('resize', syncConfigTabsScroll)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncConfigTabsScroll)
 })
 
 // 记录是否已加载过菜单
@@ -1623,8 +1838,26 @@ async function loadWechatMpMenu() {
 </script>
 
 <style scoped>
+.page-container {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
 .config-card {
   min-height: calc(100vh - 160px);
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  box-shadow: none;
+}
+
+.config-card :deep(.n-card__content) {
+  overflow: hidden;
+}
+
+body.dark-theme .config-card {
+  border-color: #3f3f46;
+  box-shadow: none;
 }
 
 .config-content {
@@ -1704,6 +1937,199 @@ async function loadWechatMpMenu() {
   margin-left: 12px;
   color: #9ca3af;
   font-size: 13px;
+}
+
+.config-tabs {
+  width: 100%;
+  min-width: 0;
+}
+
+.config-tabs-host {
+  min-width: 0;
+  margin-top: 12px;
+}
+
+.config-tabs-host--scrollable {
+  padding: 0;
+}
+
+.config-tabs :deep(.n-tabs-nav) {
+  min-width: 0;
+  padding: 0 6px;
+  overflow: hidden;
+}
+
+.config-tabs :deep(.n-tabs-nav__prefix) {
+  padding-right: 8px;
+}
+
+.config-tabs :deep(.n-tabs-nav__suffix) {
+  padding-left: 8px;
+}
+
+.config-tabs :deep(.n-tabs-wrapper) {
+  padding: 0 12px;
+  box-sizing: border-box;
+}
+
+.config-tabs :deep(.n-tabs-tab-wrapper),
+.config-tabs :deep(.n-tabs-tab) {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.config-section-title {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 16px 14px;
+  color: var(--n-text-color);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.layout-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.layout-option {
+  width: 86px;
+  cursor: pointer;
+  text-align: center;
+
+  span {
+    display: block;
+    margin-top: 9px;
+    color: #8b8f99;
+    font-size: 14px;
+    transition: color 0.2s;
+  }
+
+  &.active span {
+    color: #18a058;
+  }
+}
+
+.layout-preview {
+  height: 52px;
+  display: flex;
+  overflow: hidden;
+  border: 2px solid #3f3f46;
+  border-radius: 5px;
+  background: #f8fafc;
+  transition: border-color 0.2s;
+
+  .layout-option.active & {
+    border-color: #60a5fa;
+  }
+}
+
+.layout-left {
+  .preview-sider {
+    width: 30%;
+    background: #001529;
+  }
+
+  .preview-main {
+    flex: 1;
+    background: #f5f5f5;
+  }
+}
+
+.layout-right {
+  .preview-main {
+    flex: 1;
+    background: #f5f5f5;
+  }
+
+  .preview-sider {
+    width: 30%;
+    background: #001529;
+  }
+}
+
+.layout-top {
+  flex-direction: column;
+
+  .preview-header {
+    height: 30%;
+    background: #001529;
+  }
+
+  .preview-content {
+    flex: 1;
+    background: #f5f5f5;
+  }
+}
+
+.theme-modes {
+  display: flex;
+  gap: 16px;
+}
+
+.theme-mode {
+  cursor: pointer;
+  text-align: center;
+
+  span {
+    display: block;
+    margin-top: 9px;
+    color: #d1d5db;
+    font-size: 14px;
+  }
+
+  &.active span {
+    color: #60a5fa;
+  }
+}
+
+.theme-mode-preview {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  transition: border-color 0.2s, transform 0.2s;
+
+  .theme-mode:hover & {
+    transform: scale(1.03);
+  }
+
+  .theme-mode.active & {
+    border-color: #60a5fa;
+  }
+}
+
+.color-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-width: 300px;
+}
+
+.color-option {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+
+  &:hover {
+    transform: scale(1.08);
+  }
+
+  &.active {
+    border-color: #fff;
+    box-shadow: 0 0 0 2px currentColor;
+  }
 }
 
 :deep(.n-tabs-nav) {

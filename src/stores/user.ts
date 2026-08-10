@@ -5,8 +5,36 @@ import router, { resetRouter } from '@/router'
 import { storageKeys } from '@/config/app'
 
 export const useUserStore = defineStore('user', () => {
+  function readStoredToken() {
+    try {
+      return localStorage.getItem(storageKeys.userToken) || sessionStorage.getItem(storageKeys.userToken)
+    } catch (error) {
+      return null
+    }
+  }
+
+  function persistToken(value: string, rememberMe?: boolean) {
+    try {
+      localStorage.removeItem(storageKeys.userToken)
+      sessionStorage.removeItem(storageKeys.userToken)
+      const storage = rememberMe ? localStorage : sessionStorage
+      storage.setItem(storageKeys.userToken, value)
+    } catch (error) {
+      // 存储不可用时，仍保留内存登录态
+    }
+  }
+
+  function clearStoredToken() {
+    try {
+      localStorage.removeItem(storageKeys.userToken)
+      sessionStorage.removeItem(storageKeys.userToken)
+    } catch (error) {
+      // 忽略清理错误
+    }
+  }
+
   // 状态
-  const token = ref<string | null>(null)
+  const token = ref<string | null>(readStoredToken())
   const user = ref<UserInfo | null>(null)
   const roles = ref<string[]>([])
   const permissions = ref<string[]>([])
@@ -21,6 +49,7 @@ export const useUserStore = defineStore('user', () => {
   async function login(params: LoginParams) {
     const res = await authApi.login(params)
     token.value = res.token
+    persistToken(res.token, params.rememberMe)
     user.value = res.user
     // 登录成功后立即获取用户信息（包含菜单、权限等）
     await getInfo()
@@ -46,6 +75,7 @@ export const useUserStore = defineStore('user', () => {
     roles.value = []
     permissions.value = []
     menus.value = []
+    clearStoredToken()
     
     // 重置路由
     resetRouter()
@@ -89,10 +119,5 @@ export const useUserStore = defineStore('user', () => {
     logout,
     hasPermission,
     hasRole
-  }
-}, {
-  persist: {
-    key: storageKeys.user,
-    paths: ['token']
   }
 })

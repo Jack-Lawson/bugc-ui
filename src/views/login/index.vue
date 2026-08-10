@@ -1,286 +1,61 @@
 <template>
-  <div class="login-page" :class="[`style-${currentStyle}`]">
-    <!-- 样式切换按钮 -->
-    <div class="style-switcher">
-      <n-tooltip v-for="style in styles" :key="style.key" trigger="hover">
-        <template #trigger>
-          <div
-            class="style-option"
-            :class="{ active: currentStyle === style.key }"
-            @click="switchStyle(style.key)"
-          >
-            <n-icon size="18"><component :is="style.icon" /></n-icon>
+  <div
+    class="login-page"
+    :class="{ 'compact-captcha': compactCaptcha }"
+    :style="loginViewportStyle"
+  >
+    <div class="login-card">
+      <div class="login-lock">
+        <n-icon :component="LockClosedOutline" />
+      </div>
+      <h1 class="form-title">登录管理后台</h1>
+
+      <n-form
+        ref="formRef"
+        :class="{ 'no-inline-captcha': !inlineCaptchaVisible }"
+        :model="formData"
+        :rules="rules"
+        :show-require-mark="false"
+        size="large"
+      >
+        <n-form-item path="username" label="用户名">
+          <n-input v-model:value="formData.username" placeholder="请输入用户名" :maxlength="50" @keyup.enter="handleLogin" />
+        </n-form-item>
+        <n-form-item path="password" label="密码">
+          <n-input v-model:value="formData.password" type="password" placeholder="请输入密码" show-password-on="click" :maxlength="50" @keyup.enter="handleLogin" />
+        </n-form-item>
+        <n-form-item v-if="captchaEnabled && captchaType === 'image'" path="code" label="验证码">
+          <div class="captcha-row">
+            <n-input v-model:value="formData.code" placeholder="请输入验证码" :maxlength="6" @keyup.enter="handleLogin" />
+            <img v-if="captchaImg" :src="captchaImg" class="captcha-img" @click="loadCaptcha" title="点击刷新" />
+            <div v-else class="captcha-loading"><n-spin :size="20" /></div>
           </div>
+        </n-form-item>
+        <template v-if="captchaEnabled && captchaType === 'sms'">
+          <n-form-item label="手机号">
+            <n-input v-model:value="smsPhone" placeholder="请输入手机号" :maxlength="11" />
+          </n-form-item>
+          <n-form-item path="code" label="验证码">
+            <div class="sms-row">
+              <n-input v-model:value="formData.code" placeholder="请输入验证码" :maxlength="6" @keyup.enter="handleLogin" />
+              <n-button :disabled="smsCountdown > 0" :loading="smsSending" @click="sendSmsCode">
+                {{ smsCountdown > 0 ? `${smsCountdown}s` : '获取验证码' }}
+              </n-button>
+            </div>
+          </n-form-item>
         </template>
-        {{ style.name }}
-      </n-tooltip>
+        <n-form-item v-if="rememberMeEnabled" class="login-options-item" :show-feedback="false" :show-label="false">
+          <div class="login-options">
+            <n-checkbox v-model:checked="formData.rememberMe">记住我</n-checkbox>
+            <a v-if="registerEnabled" class="register-link" @click="goRegister">没有账号？立即注册</a>
+          </div>
+        </n-form-item>
+        <n-form-item class="login-action-item" :show-feedback="false" :show-label="false">
+          <n-button class="login-button" type="primary" block :loading="loading" @click="handleLogin">登录</n-button>
+        </n-form-item>
+      </n-form>
+      <div v-if="siteCopyright" class="login-footer">{{ siteCopyright }}</div>
     </div>
-
-    <!-- 样式一：左右分栏式 -->
-    <template v-if="currentStyle === 2">
-      <div class="login-container style1-container style2-container">
-        <div class="login-banner" :style="{ background: `linear-gradient(135deg, ${themeStore.primaryColor} 0%, ${adjustColor(themeStore.primaryColor, -30)} 100%)` }">
-          <div class="banner-content">
-            <div class="banner-logo">
-              <img v-if="siteLogo" :src="siteLogo" class="logo-img" alt="Logo" />
-              <div v-else class="logo-icon">{{ siteName.charAt(0) }}</div>
-              <span class="logo-text">{{ siteName }}</span>
-            </div>
-            <h1 class="banner-title">{{ siteDescription || '后台管理系统' }}</h1>
-            <p class="banner-desc">打造一款现代化后台管理平台</p>
-            <div class="banner-features">
-              <div class="feature-item">
-                <div class="feature-dot"></div>
-                <span>RBAC权限管理</span>
-              </div>
-              <div class="feature-item">
-                <div class="feature-dot"></div>
-                <span>高效开发体验</span>
-              </div>
-              <div class="feature-item">
-                <div class="feature-dot"></div>
-                <span>精美界面设计</span>
-              </div>
-            </div>
-          </div>
-          <div class="banner-decoration">
-            <div class="decoration-circle circle-1"></div>
-            <div class="decoration-circle circle-2"></div>
-            <div class="decoration-circle circle-3"></div>
-          </div>
-        </div>
-        <div class="login-form-wrapper">
-          <div class="login-form">
-            <h2 class="form-title">欢迎回来</h2>
-            <p class="form-subtitle">请输入您的账号信息登录系统</p>
-            <n-form ref="formRef" :model="formData" :rules="rules" size="large">
-              <n-form-item path="username" label="用户名">
-                <n-input v-model:value="formData.username" placeholder="请输入用户名" :maxlength="50" @keyup.enter="handleLogin">
-                  <template #prefix><n-icon :component="PersonOutline" /></template>
-                </n-input>
-              </n-form-item>
-              <n-form-item path="password" label="密码">
-                <n-input v-model:value="formData.password" type="password" placeholder="请输入密码" show-password-on="click" :maxlength="50" @keyup.enter="handleLogin">
-                  <template #prefix><n-icon :component="LockClosedOutline" /></template>
-                </n-input>
-              </n-form-item>
-              <!-- 图片验证码 -->
-              <n-form-item v-if="captchaEnabled && captchaType === 'image'" path="code" label="验证码">
-                <div class="captcha-row">
-                  <n-input v-model:value="formData.code" placeholder="请输入验证码" :maxlength="6" @keyup.enter="handleLogin" />
-                  <img v-if="captchaImg" :src="captchaImg" class="captcha-img" @click="loadCaptcha" title="点击刷新" />
-                  <n-spin v-else :size="20" />
-                </div>
-              </n-form-item>
-              <!-- 短信验证码 -->
-              <template v-if="captchaEnabled && captchaType === 'sms'">
-                <n-form-item label="手机号">
-                  <n-input v-model:value="smsPhone" placeholder="请输入手机号" :maxlength="11" />
-                </n-form-item>
-                <n-form-item path="code" label="验证码">
-                  <div class="sms-row">
-                    <n-input v-model:value="formData.code" placeholder="请输入验证码" :maxlength="6" @keyup.enter="handleLogin" />
-                    <n-button :disabled="smsCountdown > 0" :loading="smsSending" @click="sendSmsCode">
-                      {{ smsCountdown > 0 ? `${smsCountdown}s` : '获取验证码' }}
-                    </n-button>
-                  </div>
-                </n-form-item>
-              </template>
-              <n-form-item v-if="rememberMeEnabled" :show-label="false">
-                <div class="login-options">
-                  <n-checkbox v-model:checked="formData.rememberMe">记住我</n-checkbox>
-                  <a v-if="registerEnabled" class="register-link" :style="{ color: themeStore.primaryColor }" @click="goRegister">没有账号？立即注册</a>
-                </div>
-              </n-form-item>
-              <n-form-item>
-                <n-button type="primary" block :loading="loading" @click="handleLogin">登 录</n-button>
-              </n-form-item>
-            </n-form>
-          </div>
-        </div>
-      </div>
-      <div class="style1-footer">
-        <span>{{ copyright }}</span>
-      </div>
-    </template>
-
-    <!-- 样式二：全屏背景（与样式一相同布局，加背景） -->
-    <template v-else-if="currentStyle === 1">
-      <div class="style2-bg"></div>
-      <div class="login-container style1-container">
-        <div class="login-banner" :style="{ background: `linear-gradient(135deg, ${themeStore.primaryColor} 0%, ${adjustColor(themeStore.primaryColor, -30)} 100%)` }">
-          <div class="banner-content">
-            <div class="banner-logo">
-              <img v-if="siteLogo" :src="siteLogo" class="logo-img" alt="Logo" />
-              <div v-else class="logo-icon">{{ siteName.charAt(0) }}</div>
-              <span class="logo-text">{{ siteName }}</span>
-            </div>
-            <h1 class="banner-title">{{ siteDescription || '后台管理系统' }}</h1>
-            <p class="banner-desc">打造一款现代化后台管理平台</p>
-            <div class="banner-features">
-              <div class="feature-item">
-                <div class="feature-dot"></div>
-                <span>RBAC权限管理</span>
-              </div>
-              <div class="feature-item">
-                <div class="feature-dot"></div>
-                <span>高效开发体验</span>
-              </div>
-              <div class="feature-item">
-                <div class="feature-dot"></div>
-                <span>精美界面设计</span>
-              </div>
-            </div>
-          </div>
-          <div class="banner-decoration">
-            <div class="decoration-circle circle-1"></div>
-            <div class="decoration-circle circle-2"></div>
-            <div class="decoration-circle circle-3"></div>
-          </div>
-        </div>
-        <div class="login-form-wrapper">
-          <div class="login-form">
-            <h2 class="form-title">欢迎回来</h2>
-            <p class="form-subtitle">请输入您的账号信息登录系统</p>
-            <n-form ref="formRef" :model="formData" :rules="rules" size="large">
-              <n-form-item path="username" label="用户名">
-                <n-input v-model:value="formData.username" placeholder="请输入用户名" :maxlength="50" @keyup.enter="handleLogin">
-                  <template #prefix><n-icon :component="PersonOutline" /></template>
-                </n-input>
-              </n-form-item>
-              <n-form-item path="password" label="密码">
-                <n-input v-model:value="formData.password" type="password" placeholder="请输入密码" show-password-on="click" :maxlength="50" @keyup.enter="handleLogin">
-                  <template #prefix><n-icon :component="LockClosedOutline" /></template>
-                </n-input>
-              </n-form-item>
-              <!-- 图片验证码 -->
-              <n-form-item v-if="captchaEnabled && captchaType === 'image'" path="code" label="验证码">
-                <div class="captcha-row">
-                  <n-input v-model:value="formData.code" placeholder="请输入验证码" :maxlength="6" @keyup.enter="handleLogin" />
-                  <img v-if="captchaImg" :src="captchaImg" class="captcha-img" @click="loadCaptcha" title="点击刷新" />
-                  <n-spin v-else :size="20" />
-                </div>
-              </n-form-item>
-              <!-- 短信验证码 -->
-              <template v-if="captchaEnabled && captchaType === 'sms'">
-                <n-form-item label="手机号">
-                  <n-input v-model:value="smsPhone" placeholder="请输入手机号" :maxlength="11" />
-                </n-form-item>
-                <n-form-item path="code" label="验证码">
-                  <div class="sms-row">
-                    <n-input v-model:value="formData.code" placeholder="请输入验证码" :maxlength="6" @keyup.enter="handleLogin" />
-                    <n-button :disabled="smsCountdown > 0" :loading="smsSending" @click="sendSmsCode">
-                      {{ smsCountdown > 0 ? `${smsCountdown}s` : '获取验证码' }}
-                    </n-button>
-                  </div>
-                </n-form-item>
-              </template>
-              <n-form-item v-if="rememberMeEnabled" :show-label="false">
-                <div class="login-options">
-                  <n-checkbox v-model:checked="formData.rememberMe">记住我</n-checkbox>
-                  <a v-if="registerEnabled" class="register-link" :style="{ color: themeStore.primaryColor }" @click="goRegister">没有账号？立即注册</a>
-                </div>
-              </n-form-item>
-              <n-form-item>
-                <n-button type="primary" block :loading="loading" @click="handleLogin">登 录</n-button>
-              </n-form-item>
-            </n-form>
-          </div>
-        </div>
-      </div>
-      <div class="style2-footer">
-        <span>{{ copyright }}</span>
-      </div>
-    </template>
-
-    <!-- 样式三：毛玻璃（与样式一相同布局，加毛玻璃效果） -->
-    <template v-else-if="currentStyle === 3">
-      <div class="style3-bg" :style="{ background: `linear-gradient(135deg, ${themeStore.primaryColor} 0%, ${adjustColor(themeStore.primaryColor, -30)} 50%, ${themeStore.primaryColor} 100%)` }"></div>
-      <div class="login-container style1-container style3-glass">
-        <div class="login-banner" style="background: transparent;">
-          <div class="banner-content">
-            <div class="banner-logo">
-              <img v-if="siteLogo" :src="siteLogo" class="logo-img" alt="Logo" />
-              <div v-else class="logo-icon" style="background: rgba(255, 255, 255, 0.15); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2);">{{ siteName.charAt(0) }}</div>
-              <span class="logo-text">{{ siteName }}</span>
-            </div>
-            <h1 class="banner-title" style="color: #fff;">{{ siteDescription || '后台管理系统' }}</h1>
-            <p class="banner-desc">打造一款现代化后台管理平台</p>
-            <div class="banner-features">
-              <div class="feature-item">
-                <div class="feature-dot" style="background: rgba(255, 255, 255, 0.6);"></div>
-                <span>RBAC权限管理</span>
-              </div>
-              <div class="feature-item">
-                <div class="feature-dot" style="background: rgba(255, 255, 255, 0.6);"></div>
-                <span>高效开发体验</span>
-              </div>
-              <div class="feature-item">
-                <div class="feature-dot" style="background: rgba(255, 255, 255, 0.6);"></div>
-                <span>精美界面设计</span>
-              </div>
-            </div>
-          </div>
-          <div class="banner-decoration">
-            <div class="decoration-circle circle-1"></div>
-            <div class="decoration-circle circle-2"></div>
-            <div class="decoration-circle circle-3"></div>
-          </div>
-        </div>
-        <div class="login-form-wrapper style3-form-glass">
-          <div class="login-form">
-            <h2 class="form-title">欢迎回来</h2>
-            <p class="form-subtitle">请输入您的账号信息登录系统</p>
-            <n-form ref="formRef" :model="formData" :rules="rules" size="large">
-              <n-form-item path="username" label="用户名">
-                <n-input v-model:value="formData.username" placeholder="请输入用户名" :maxlength="50" @keyup.enter="handleLogin">
-                  <template #prefix><n-icon :component="PersonOutline" /></template>
-                </n-input>
-              </n-form-item>
-              <n-form-item path="password" label="密码">
-                <n-input v-model:value="formData.password" type="password" placeholder="请输入密码" show-password-on="click" :maxlength="50" @keyup.enter="handleLogin">
-                  <template #prefix><n-icon :component="LockClosedOutline" /></template>
-                </n-input>
-              </n-form-item>
-              <!-- 图片验证码 -->
-              <n-form-item v-if="captchaEnabled && captchaType === 'image'" path="code" label="验证码">
-                <div class="captcha-row">
-                  <n-input v-model:value="formData.code" placeholder="请输入验证码" :maxlength="6" @keyup.enter="handleLogin" />
-                  <img v-if="captchaImg" :src="captchaImg" class="captcha-img" @click="loadCaptcha" title="点击刷新" />
-                  <n-spin v-else :size="20" />
-                </div>
-              </n-form-item>
-              <!-- 短信验证码 -->
-              <template v-if="captchaEnabled && captchaType === 'sms'">
-                <n-form-item label="手机号">
-                  <n-input v-model:value="smsPhone" placeholder="请输入手机号" :maxlength="11" />
-                </n-form-item>
-                <n-form-item path="code" label="验证码">
-                  <div class="sms-row">
-                    <n-input v-model:value="formData.code" placeholder="请输入验证码" :maxlength="6" @keyup.enter="handleLogin" />
-                    <n-button :disabled="smsCountdown > 0" :loading="smsSending" @click="sendSmsCode">
-                      {{ smsCountdown > 0 ? `${smsCountdown}s` : '获取验证码' }}
-                    </n-button>
-                  </div>
-                </n-form-item>
-              </template>
-              <n-form-item v-if="rememberMeEnabled" :show-label="false">
-                <div class="login-options">
-                  <n-checkbox v-model:checked="formData.rememberMe">记住我</n-checkbox>
-                  <a v-if="registerEnabled" class="register-link" style="color: rgba(255, 255, 255, 0.6);" @click="goRegister">没有账号？立即注册</a>
-                </div>
-              </n-form-item>
-              <n-form-item>
-                <n-button type="primary" block :loading="loading" @click="handleLogin">登 录</n-button>
-              </n-form-item>
-            </n-form>
-          </div>
-        </div>
-      </div>
-      <div class="style3-footer">
-        <span>{{ copyright }}</span>
-      </div>
-    </template>
 
 
     <!-- 滑块验证弹窗 -->
@@ -341,29 +116,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useMessage, type FormInst, type FormRules } from 'naive-ui'
-import { PersonOutline, LockClosedOutline, GridOutline, AppsOutline, ImageOutline, RefreshOutline, CloseOutline, ArrowForwardOutline, CheckmarkOutline } from '@vicons/ionicons5'
+import { LockClosedOutline, RefreshOutline, CloseOutline, ArrowForwardOutline, CheckmarkOutline } from '@vicons/ionicons5'
 import { useUserStore } from '@/stores/user'
 import { useSiteStore } from '@/stores/site'
-import { useThemeStore } from '@/stores/theme'
 import { authApi } from '@/api/auth'
 import { configGroupApi } from '@/api/org'
-import { authConfig, siteDefaults, storageKeys } from '@/config/app'
+import { authConfig } from '@/config/app'
 
 const router = useRouter()
 const route = useRoute()
 const message = useMessage()
 const userStore = useUserStore()
 const siteStore = useSiteStore()
-const themeStore = useThemeStore()
 
-// 站点配置（带默认值）
-const siteName = computed(() => siteStore.siteName || siteDefaults.name)
-const siteDescription = computed(() => siteStore.siteDescription || siteDefaults.description)
-const siteLogo = computed(() => siteStore.siteLogo)
-const copyright = computed(() => siteStore.copyright || '版权所有 © 成都火星网络科技有限公司 2025-2030')
+const viewport = reactive({
+  width: 1366,
+  height: 768
+})
+
+function syncViewport() {
+  if (typeof window === 'undefined') return
+  viewport.width = window.innerWidth
+  viewport.height = window.innerHeight
+}
+
+function clamp(min: number, value: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
+function px(value: number) {
+  return `${Math.round(value)}px`
+}
+
+function getDesktopCardBaseWidth(width: number) {
+  return width > 1080 ? 540 : 448
+}
 
 // 登录配置
 const captchaEnabled = ref(false)
@@ -518,28 +308,6 @@ async function sendSmsCode() {
   }
 }
 
-// 加载站点配置
-onMounted(() => {
-  if (!siteStore.loaded) {
-    siteStore.loadConfig()
-  }
-  loadPublicConfig()
-})
-
-// 样式选项
-const styles = [
-  { key: 1, name: '经典分栏', icon: GridOutline },
-  { key: 2, name: '左右分栏', icon: AppsOutline }
-]
-
-// 当前样式
-const currentStyle = ref(parseInt(localStorage.getItem(storageKeys.loginStyle) || '1'))
-
-function switchStyle(style: number) {
-  currentStyle.value = style
-  localStorage.setItem(storageKeys.loginStyle, style.toString())
-}
-
 const formRef = ref<FormInst | null>(null)
 const loading = ref(false)
 
@@ -547,7 +315,7 @@ const formData = reactive({
   username: '',
   password: '',
   code: '',
-  rememberMe: true
+  rememberMe: false
 })
 
 const rules = computed<FormRules>(() => ({
@@ -555,6 +323,80 @@ const rules = computed<FormRules>(() => ({
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
   code: captchaEnabled.value ? [{ required: true, message: '请输入验证码', trigger: 'blur' }] : []
 }))
+
+const inlineCaptchaVisible = computed(() => captchaEnabled.value && ['image', 'sms'].includes(captchaType.value))
+const compactCaptcha = computed(() => viewport.width < 430)
+const siteCopyright = computed(() => siteStore.copyright?.trim() || '')
+
+const loginScale = computed(() => {
+  const baseWidth = viewport.width >= 768 ? getDesktopCardBaseWidth(viewport.width) : 360
+  const availableWidth = Math.max(280, viewport.width - (viewport.width < 768 ? 28 : 48))
+  const availableHeight = Math.max(360, viewport.height - (viewport.height < 700 ? 22 : 56))
+  const contentHeight = inlineCaptchaVisible.value ? 540 : 450
+  const fitScale = Math.min(availableWidth / baseWidth, availableHeight / contentHeight)
+
+  if (viewport.width >= 768) {
+    return clamp(0.86, Math.min(fitScale, 1), 1)
+  }
+
+  return clamp(viewport.width < 430 ? 0.68 : 0.72, Math.min(fitScale, 0.94), 0.94)
+})
+
+const loginViewportStyle = computed(() => {
+  const scale = loginScale.value
+  const availableWidth = Math.max(280, viewport.width - (viewport.width < 768 ? 28 : 48))
+  const isLarge = viewport.width > 1080
+  const isWide = viewport.width >= 768
+  const isTiny = viewport.width < 430
+  const cardBaseWidth = isWide ? getDesktopCardBaseWidth(viewport.width) : 360
+  const cardWidth = Math.min(cardBaseWidth * scale, availableWidth)
+
+  return {
+    '--login-card-width': px(cardWidth),
+    '--login-page-pad-x': px(clamp(12, 24 * scale, 24)),
+    '--login-page-pad-y': px(clamp(10, 28 * scale, 28)),
+    '--login-card-pad-x': px(clamp(16, (isLarge ? 46 : isWide ? 34 : 28) * scale, isLarge ? 46 : isWide ? 34 : 28)),
+    '--login-card-pad-y': px(clamp(18, (isLarge ? 30 : isWide ? 30 : 26) * scale, isLarge ? 30 : isWide ? 30 : 26)),
+    '--login-card-pad-bottom': px(clamp(16, (isLarge ? 28 : isWide ? 28 : 24) * scale, isLarge ? 28 : isWide ? 28 : 24)),
+    '--login-lock-size': px(clamp(44, (isLarge ? 82 : isWide ? 72 : 66) * scale, isLarge ? 82 : isWide ? 72 : 66)),
+    '--login-lock-font-size': px(clamp(22, (isLarge ? 38 : isWide ? 34 : 32) * scale, isLarge ? 38 : isWide ? 34 : 32)),
+    '--login-lock-margin-bottom': px(clamp(9, (isLarge ? 22 : isWide ? 18 : 16) * scale, isLarge ? 22 : isWide ? 18 : 16)),
+    '--login-title-font-size': px(clamp(isTiny ? 18 : 19, (isLarge ? 32 : isWide ? 28 : 24) * scale, isLarge ? 32 : isWide ? 28 : 24)),
+    '--login-title-margin-bottom': px(clamp(13, (isLarge ? 28 : isWide ? 24 : 20) * scale, isLarge ? 28 : isWide ? 24 : 20)),
+    '--login-form-item-gap': px(clamp(9, (isLarge ? 21 : isWide ? 18 : 16) * scale, isLarge ? 21 : isWide ? 18 : 16)),
+    '--login-tight-item-gap': px(clamp(7, 10 * scale, 10)),
+    '--login-label-height': px(clamp(16, 20 * scale, 20)),
+    '--login-label-padding-bottom': px(clamp(4, 6 * scale, 6)),
+    '--login-label-font-size': px(clamp(isTiny ? 11 : 12, (isLarge ? 17 : isWide ? 15 : 14) * scale, isLarge ? 17 : isWide ? 15 : 14)),
+    '--login-control-height': px(clamp(34, (isLarge ? 50 : isWide ? 46 : 44) * scale, isLarge ? 50 : isWide ? 46 : 44)),
+    '--login-control-radius': px(clamp(6, 8 * scale, 8)),
+    '--login-control-font-size': px(clamp(isTiny ? 11 : 12, (isLarge ? 17 : isWide ? 15 : 14) * scale, isLarge ? 17 : isWide ? 15 : 14)),
+    '--login-captcha-width': px(clamp(82, (isLarge ? 136 : isWide ? 120 : 108) * scale, isLarge ? 136 : isWide ? 120 : 108)),
+    '--login-captcha-height': px(clamp(36, (isLarge ? 54 : isWide ? 50 : 48) * scale, isLarge ? 54 : isWide ? 50 : 48)),
+    '--login-captcha-button-width': px(clamp(38, 48 * scale, 48)),
+    '--login-field-gap': px(clamp(7, (isWide ? 10 : 9) * scale, isWide ? 10 : 9)),
+    '--login-option-gap': px(clamp(8, 12 * scale, 12)),
+    '--login-option-offset': px(clamp(-6, -6 * scale, -4)),
+    '--login-small-font-size': px(clamp(isTiny ? 10 : 11, (isLarge ? 16 : isWide ? 14 : 13) * scale, isLarge ? 16 : isWide ? 14 : 13)),
+    '--login-footer-font-size': px(clamp(isTiny ? 9 : 10, (isLarge ? 13 : 12) * scale, isLarge ? 13 : 12)),
+    '--login-footer-margin-top': px(clamp(6, 8 * scale, 8)),
+    alignItems: viewport.width < 768 && viewport.height < 620 ? 'flex-start' : 'center'
+  }
+})
+
+// 加载站点配置
+onMounted(() => {
+  syncViewport()
+  window.addEventListener('resize', syncViewport, { passive: true })
+  if (!siteStore.loaded) {
+    siteStore.loadConfig()
+  }
+  loadPublicConfig()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncViewport)
+})
 
 async function handleLogin() {
   try {
@@ -622,19 +464,10 @@ async function doLogin() {
   }
 }
 
-// 跳转注册页面
 function goRegister() {
   router.push('/register')
 }
 
-// 颜色调整函数（调深或调亮）
-function adjustColor(hex: string, percent: number): string {
-  const num = parseInt(hex.replace('#', ''), 16)
-  const r = Math.min(255, Math.max(0, (num >> 16) + percent))
-  const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + percent))
-  const b = Math.min(255, Math.max(0, (num & 0x0000FF) + percent))
-  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`
-}
 </script>
 
 <style lang="scss" scoped>
@@ -1387,6 +1220,642 @@ function adjustColor(hex: string, percent: number): string {
   .login-form-wrapper {
     padding: 32px;
   }
+}
+
+/* ==================== 新版登录页 ==================== */
+.login-page {
+  min-height: 100vh;
+  padding: 32px;
+  overflow: auto;
+  color: #fff;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(96, 165, 250, 0.18), transparent 30%),
+    radial-gradient(circle at 82% 70%, rgba(20, 184, 166, 0.14), transparent 28%),
+    linear-gradient(135deg, #111827 0%, #18181c 52%, #0f172a 100%);
+}
+
+.login-shell {
+  width: min(1080px, 100%);
+  min-height: 640px;
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(24, 24, 28, 0.78);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(18px);
+}
+
+.brand-panel {
+  position: relative;
+  overflow: hidden;
+  padding: 48px;
+  background: linear-gradient(160deg, rgba(17, 24, 39, 0.96), rgba(31, 41, 55, 0.88));
+
+  &::before {
+    content: '';
+    position: absolute;
+    right: -120px;
+    bottom: -140px;
+    width: 360px;
+    height: 360px;
+    border-radius: 50%;
+    background: rgba(96, 165, 250, 0.18);
+  }
+}
+
+.brand-panel-content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 42px;
+}
+
+.brand-lockup,
+.mobile-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-logo,
+.mobile-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  font-weight: 800;
+}
+
+.brand-logo,
+.brand-logo-img {
+  width: 48px;
+  height: 48px;
+}
+
+.mobile-logo,
+.mobile-logo-img {
+  width: 34px;
+  height: 34px;
+}
+
+.brand-logo-img,
+.mobile-logo-img {
+  object-fit: contain;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.brand-name {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.brand-tag {
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 13px;
+}
+
+.brand-eyebrow {
+  margin: 0 0 16px;
+  color: #60a5fa;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.brand-copy h1 {
+  max-width: 480px;
+  margin: 0;
+  color: #fff;
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 1.16;
+  letter-spacing: 0;
+}
+
+.brand-copy p:last-child {
+  max-width: 420px;
+  margin: 18px 0 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 15px;
+  line-height: 1.8;
+}
+
+.brand-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.brand-metrics div {
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.brand-metrics strong {
+  display: block;
+  color: #fff;
+  font-size: 18px;
+}
+
+.brand-metrics span {
+  display: block;
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+}
+
+.form-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 44px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #111827;
+}
+
+.mobile-brand {
+  display: none;
+  margin-bottom: 24px;
+  color: #111827;
+  font-weight: 800;
+}
+
+.login-form {
+  width: 100%;
+  max-width: 380px;
+}
+
+.form-kicker {
+  margin: 0 0 8px;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.form-title {
+  margin: 0;
+  color: #111827;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.form-subtitle {
+  margin: 10px 0 28px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+:deep(.n-form-item-label) {
+  color: #374151;
+  font-weight: 600;
+}
+
+:deep(.n-input) {
+  --n-height: 42px;
+  --n-border-radius: 8px;
+}
+
+:deep(.n-button) {
+  --n-height: 42px;
+  --n-border-radius: 8px;
+  font-weight: 700;
+}
+
+.captcha-row,
+.sms-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.captcha-row .n-input,
+.sms-row .n-input {
+  flex: 1;
+}
+
+.captcha-img {
+  width: 112px;
+  height: 42px;
+  object-fit: cover;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.sms-row .n-button {
+  width: 118px;
+  flex-shrink: 0;
+}
+
+.login-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 12px;
+}
+
+.register-link {
+  color: #2563eb;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+@media (max-width: 900px) {
+  .login-page {
+    padding: 18px;
+  }
+
+  .login-shell {
+    min-height: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .brand-panel {
+    display: none;
+  }
+
+  .form-panel {
+    padding: 32px 24px;
+  }
+
+  .mobile-brand {
+    display: flex;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-options {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sms-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sms-row .n-button {
+    width: 100%;
+  }
+
+  .slider-puzzle-container {
+    width: min(360px, calc(100vw - 32px));
+  }
+}
+
+/* ==================== 安全验证登录卡片 ==================== */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: var(--login-page-pad-y) var(--login-page-pad-x);
+  overflow: auto;
+  background: linear-gradient(135deg, #6c8df2 0%, #a66be2 100%);
+}
+
+.login-card {
+  width: min(var(--login-card-width), 100%);
+  padding: var(--login-card-pad-y) var(--login-card-pad-x) var(--login-card-pad-bottom);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(59, 72, 132, 0.24);
+  color: #1f2937;
+}
+
+.login-lock {
+  width: var(--login-lock-size);
+  height: var(--login-lock-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--login-lock-margin-bottom);
+  border-radius: 50%;
+  color: #fff;
+  font-size: var(--login-lock-font-size);
+  background: linear-gradient(135deg, #6c82f4 0%, #9f71dd 100%);
+}
+
+.form-title {
+  margin: 0 0 var(--login-title-margin-bottom);
+  color: #111827;
+  font-size: var(--login-title-font-size);
+  font-weight: 800;
+  line-height: 1.3;
+  text-align: center;
+  letter-spacing: 0;
+}
+
+:deep(.n-form-item) {
+  margin-bottom: var(--login-form-item-gap);
+}
+
+:deep(.n-form-item-label) {
+  min-height: var(--login-label-height);
+  padding: 0 0 var(--login-label-padding-bottom);
+  color: #1f2937;
+  font-size: var(--login-label-font-size);
+  font-weight: 500;
+}
+
+:deep(.n-form-item-label__text) {
+  color: #1f2937;
+}
+
+:deep(.n-form-item-feedback-wrapper) {
+  min-height: 0 !important;
+  height: 0 !important;
+  line-height: 0 !important;
+  overflow: hidden !important;
+}
+
+:deep(.n-form-item-feedback) {
+  display: none !important;
+}
+
+:deep(.n-input) {
+  --n-height: var(--login-control-height);
+  --n-border-radius: var(--login-control-radius);
+  --n-color: #fff;
+  --n-color-focus: #fff;
+  --n-text-color: #111827;
+  --n-caret-color: #111827;
+  --n-placeholder-color: #8a8f98;
+  --n-icon-color: #8a8f98;
+  --n-icon-color-hover: #6c82f4;
+  --n-border: 1px solid #d9dce3;
+  --n-border-hover: 1px solid #8aa0f7;
+  --n-border-focus: 1px solid #7c8ff3;
+  --n-box-shadow-focus: 0 0 0 2px rgba(124, 143, 243, 0.14);
+  font-size: var(--login-control-font-size);
+}
+
+:deep(.n-button) {
+  --n-height: var(--login-control-height);
+  --n-border-radius: var(--login-control-radius);
+  --n-text-color: #fff;
+  --n-text-color-hover: #fff;
+  --n-text-color-pressed: #fff;
+  --n-text-color-focus: #fff;
+  font-size: var(--login-control-font-size);
+  font-weight: 700;
+}
+
+.captcha-row {
+  display: grid;
+  grid-template-columns: 1fr var(--login-captcha-width);
+  gap: var(--login-field-gap);
+  width: 100%;
+}
+
+.captcha-img,
+.captcha-loading {
+  width: var(--login-captcha-width);
+  height: var(--login-captcha-height);
+  border: 0;
+  border-radius: var(--login-control-radius);
+  background: #f1f4ff;
+}
+
+.captcha-img {
+  object-fit: cover;
+  cursor: pointer;
+}
+
+.captcha-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.captcha-refresh {
+  --n-text-color: #6c82f4;
+  --n-text-color-hover: #5c70ea;
+  --n-text-color-pressed: #5265db;
+  --n-text-color-focus: #5c70ea;
+  width: var(--login-captcha-button-width);
+  color: #6c82f4;
+  background: #f1f4ff;
+  border: 0;
+
+  &:hover {
+    color: #5c70ea;
+    background: #e8edff;
+  }
+}
+
+.sms-row {
+  display: grid;
+  grid-template-columns: 1fr var(--login-captcha-width);
+  gap: var(--login-field-gap);
+  width: 100%;
+}
+
+.login-options {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--login-option-gap);
+  margin-top: var(--login-option-offset);
+}
+
+.login-action-item {
+  margin-top: calc(var(--login-form-item-gap) * -0.45);
+}
+
+:deep(.n-checkbox) {
+  --n-text-color: #4b5563;
+  --n-color-checked: #7c82f6;
+  --n-border-checked: 1px solid #7c82f6;
+  --n-border-focus: 1px solid #7c82f6;
+  --n-box-shadow-focus: 0 0 0 2px rgba(124, 130, 246, 0.16);
+  font-size: var(--login-small-font-size);
+}
+
+.no-inline-captcha {
+  :deep(.n-form-item:nth-child(2)) {
+    margin-bottom: var(--login-tight-item-gap);
+  }
+
+  .login-options-item {
+    margin-bottom: var(--login-tight-item-gap);
+  }
+
+  .login-action-item {
+    margin-top: calc(var(--login-tight-item-gap) * -0.5);
+    margin-bottom: var(--login-tight-item-gap);
+  }
+}
+
+.register-link {
+  color: #7b70f0;
+  font-size: var(--login-small-font-size);
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover {
+    color: #6b6feb;
+    text-decoration: underline;
+  }
+}
+
+.login-button {
+  --n-color: transparent !important;
+  --n-color-hover: transparent !important;
+  --n-color-pressed: transparent !important;
+  --n-text-color: #fff !important;
+  --n-text-color-hover: #fff !important;
+  --n-text-color-pressed: #fff !important;
+  --n-text-color-focus: #fff !important;
+  --n-border: 0 !important;
+  --n-border-hover: 0 !important;
+  --n-border-pressed: 0 !important;
+  --n-border-focus: 0 !important;
+  height: var(--login-control-height);
+  background: linear-gradient(90deg, #6c82f4 0%, #a66be2 100%) !important;
+  box-shadow: 0 8px 18px rgba(124, 130, 246, 0.24);
+}
+
+.compact-captcha {
+  .captcha-row {
+    grid-template-columns: 1fr var(--login-captcha-width);
+  }
+
+  .sms-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 当前登录页最终视觉对齐，覆盖旧登录样式和全局暗色主题 */
+.login-page {
+  align-items: center !important;
+  min-height: 100vh !important;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 34% 38%, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 34%),
+    linear-gradient(135deg, #6c8cf1 0%, #7e82ed 48%, #a66ee2 100%) !important;
+}
+
+.login-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 44%),
+    radial-gradient(circle at 52% 50%, rgba(80, 101, 215, 0.12) 0%, rgba(80, 101, 215, 0) 42%);
+}
+
+.login-card {
+  border-radius: 12px !important;
+  background: #fff !important;
+  box-sizing: border-box !important;
+  box-shadow: 0 24px 64px rgba(83, 75, 155, 0.22) !important;
+}
+
+.login-lock {
+  background: linear-gradient(135deg, #6e82f4 0%, #9b70df 100%) !important;
+}
+
+.form-title {
+  color: #111827 !important;
+  font-weight: 800 !important;
+}
+
+:deep(.n-form-item-label),
+:deep(.n-form-item-label__text) {
+  color: #1f2937 !important;
+}
+
+:deep(.n-input) {
+  --n-color: #fff !important;
+  --n-color-focus: #fff !important;
+  --n-color-disabled: #fff !important;
+  --n-text-color: #111827 !important;
+  --n-text-color-disabled: #111827 !important;
+  --n-placeholder-color: #8a8f98 !important;
+  --n-border: 1px solid #d7dbe3 !important;
+  --n-border-hover: 1px solid #b8c2dd !important;
+  --n-border-focus: 1px solid #8a91f2 !important;
+  --n-box-shadow-focus: 0 0 0 2px rgba(124, 130, 246, 0.12) !important;
+}
+
+:deep(.n-input .n-input-wrapper),
+:deep(.n-input .n-input__input),
+:deep(.n-input .n-input__input-el),
+:deep(.n-input .n-input__placeholder),
+:deep(.n-input .n-input__suffix),
+:deep(.n-input .n-input__prefix) {
+  background: #fff !important;
+  color: #111827 !important;
+}
+
+:deep(.n-input .n-input__placeholder),
+:deep(.n-input input::placeholder) {
+  color: #8a8f98 !important;
+}
+
+:deep(.n-input input:-webkit-autofill),
+:deep(.n-input input:-webkit-autofill:hover),
+:deep(.n-input input:-webkit-autofill:focus) {
+  -webkit-text-fill-color: #111827 !important;
+  box-shadow: 0 0 0 1000px #fff inset !important;
+  transition: background-color 9999s ease-out;
+}
+
+:deep(.n-checkbox) {
+  --n-text-color: #4b5563 !important;
+  --n-color-checked: #7c82f6 !important;
+  --n-border-checked: 1px solid #7c82f6 !important;
+  --n-check-mark-color: #fff !important;
+}
+
+.register-link,
+.captcha-refresh {
+  color: #7085ff !important;
+}
+
+.login-button {
+  color: #fff !important;
+  background: linear-gradient(90deg, #6d82f4 0%, #a36fe2 100%) !important;
+  box-shadow: none !important;
+}
+
+.login-footer {
+  margin-top: var(--login-footer-margin-top);
+  color: #667085 !important;
+  font-size: var(--login-footer-font-size);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.login-options-item {
+  margin-bottom: calc(var(--login-form-item-gap) * 0.35) !important;
+}
+
+.login-action-item {
+  margin-top: 0 !important;
+  margin-bottom: calc(var(--login-form-item-gap) * 0.7) !important;
 }
 
 </style>
