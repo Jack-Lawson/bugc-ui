@@ -1,11 +1,18 @@
 <template>
-  <n-layout :has-sider="layoutConfig.siderPosition !== 'top'" class="layout" :class="layoutConfig.siderPosition === 'top' ? 'layout-top' : ''">
+  <n-layout
+    :has-sider="layoutConfig.siderPosition !== 'top'"
+    class="layout"
+    :class="[
+      layoutConfig.siderPosition === 'top' ? 'layout-top' : '',
+      isHiddenSiderMode ? 'layout-hidden-sider' : ''
+    ]"
+  >
     <!-- 侧边栏（左侧/右侧模式） -->
     <n-layout-sider
       v-if="layoutConfig.siderPosition !== 'top'"
       bordered
       collapse-mode="width"
-      :collapsed-width="64"
+      :collapsed-width="siderCollapsedWidth"
       :width="240"
       :collapsed="collapsed"
       show-trigger
@@ -13,10 +20,24 @@
       @collapse="collapsed = true"
       @expand="collapsed = false"
       class="layout-sider"
-      :class="[`theme-${layoutConfig.theme}`, layoutConfig.siderPosition === 'right' ? 'sider-right' : '']"
+      :class="[
+        `theme-${layoutConfig.theme}`,
+        layoutConfig.siderPosition === 'right' ? 'sider-right' : '',
+        shouldFullyHideSider ? 'sider-hidden-mode' : ''
+      ]"
     >
       <!-- Logo -->
-      <div class="logo" :class="{ 'logo-collapsed': collapsed, 'logo-primary': themeStore.headerUsePrimaryColor }" :style="themeStore.headerUsePrimaryColor ? { background: themeStore.primaryColor, borderBottomColor: themeStore.primaryColor } : {}">
+      <div
+        class="logo"
+        :class="{
+          'logo-collapsed': collapsed,
+          'logo-primary': themeStore.headerUsePrimaryColor,
+          'logo-clickable': shouldFullyHideSider
+        }"
+        :style="themeStore.headerUsePrimaryColor ? { background: themeStore.primaryColor, borderBottomColor: themeStore.primaryColor } : {}"
+        :title="shouldFullyHideSider ? '隐藏菜单' : undefined"
+        @click="shouldFullyHideSider && toggleSider()"
+      >
         <img v-if="siteLogo" :src="siteLogo" class="logo-img" alt="Logo" />
         <div v-else class="logo-icon" :style="{ background: themeStore.headerUsePrimaryColor ? '#fff' : themeStore.primaryColor, color: themeStore.headerUsePrimaryColor ? themeStore.primaryColor : '#fff' }">{{ siteName.charAt(0) }}</div>
         <transition name="fade">
@@ -27,7 +48,7 @@
       <!-- 菜单 -->
       <n-menu
         :collapsed="collapsed"
-        :collapsed-width="64"
+        :collapsed-width="siderCollapsedWidth"
         :collapsed-icon-size="22"
         :options="menuOptions"
         :value="activeMenu"
@@ -57,49 +78,19 @@
           />
         </div>
 
-        <div v-else class="header-left">
-          <button class="header-brand" type="button" title="折叠菜单" @click="toggleSider">
+        <div v-else-if="shouldFullyHideSider && collapsed" class="header-left">
+          <button
+            class="header-brand"
+            type="button"
+            :title="collapsed ? '展开菜单' : '隐藏菜单'"
+            @click="toggleSider"
+          >
             <img v-if="siteLogo" :src="siteLogo" class="header-brand-img" alt="Logo" />
             <span v-else class="header-brand-icon">{{ siteName.charAt(0) }}</span>
             <span class="header-brand-text">BugC</span>
           </button>
         </div>
-
-        <div class="header-center">
-          <n-popover trigger="click" placement="bottom" :width="400" v-model:show="searchVisible">
-            <template #trigger>
-              <n-input
-                v-model:value="searchKeyword"
-                class="header-search"
-                placeholder="搜索菜单"
-                clearable
-                @input="handleSearch"
-                @keyup.enter="handleSearchEnter"
-              >
-                <template #prefix>
-                  <n-icon><SearchOutline /></n-icon>
-                </template>
-              </n-input>
-            </template>
-            <div class="search-panel">
-              <div class="search-results" v-if="searchResults.length > 0">
-                <div
-                  v-for="item in searchResults"
-                  :key="item.key"
-                  class="search-result-item"
-                  @click="goToMenu(item)"
-                >
-                  <n-icon size="16" class="result-icon">
-                    <component :is="iconMap[item.iconName] || MenuOutline" />
-                  </n-icon>
-                  <span class="result-label">{{ item.label }}</span>
-                  <span class="result-path">{{ item.path }}</span>
-                </div>
-              </div>
-              <n-empty v-else-if="searchKeyword" description="未找到匹配菜单" size="small" style="padding: 20px 0" />
-            </div>
-          </n-popover>
-        </div>
+        <div v-else class="header-left header-left-empty"></div>
 
         <div class="header-right">
           <!-- 消息通知 -->
@@ -325,7 +316,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h, onMounted } from 'vue'
+import { ref, computed, h, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NIcon, useMessage, useDialog, type DropdownOption, type MenuOption } from 'naive-ui'
 import {
@@ -357,8 +348,8 @@ import {
   CloudOutline,
   NotificationsOutline,
   ChatbubbleOutline,
-  SearchOutline,
-  CogOutline
+  CogOutline,
+  OptionsOutline
 } from '@vicons/ionicons5'
 import { useUserStore } from '@/stores/user'
 import { useMessageStore } from '@/stores/message'
@@ -388,7 +379,12 @@ const siteLogo = computed(() => siteStore.siteLogo)
 // 注册全局message
 window.$message = message
 
+const mobileSiderBreakpoint = 768
 const collapsed = ref(false)
+const isMobileSiderViewport = ref(
+  typeof window !== 'undefined' ? window.innerWidth <= mobileSiderBreakpoint : false
+)
+let lastMobileSiderViewport = isMobileSiderViewport.value
 const showProfileModal = ref(false)
 const showPasswordModal = ref(false)
 const messageTab = ref('notice')
@@ -401,10 +397,6 @@ const messagePage = ref(1)
 const hasMoreMessages = ref(true)
 const messageListRef = ref<HTMLElement | null>(null)
 
-// 搜索相关
-const searchVisible = ref(false)
-const searchKeyword = ref('')
-const searchResults = ref<Array<{ key: string; label: string; path: string; iconName: string }>>([])
 const userMenuVisible = ref(false)
 const activeBackendMenu = ref(false)
 const activeBackendGroupKey = ref('')
@@ -414,6 +406,10 @@ const layoutConfig = computed(() => ({
   siderPosition: themeStore.siderPosition,
   theme: themeStore.mode
 }))
+
+const isHiddenSiderMode = computed(() => themeStore.siderPosition === 'hidden')
+const shouldFullyHideSider = computed(() => isHiddenSiderMode.value || isMobileSiderViewport.value)
+const siderCollapsedWidth = computed(() => shouldFullyHideSider.value ? 0 : 64)
 
 // 顶栏动态样式
 const headerStyle = computed(() => {
@@ -426,11 +422,37 @@ const headerStyle = computed(() => {
   return {}
 })
 
+function syncMobileSiderState(force = false) {
+  const nextIsMobile = window.innerWidth <= mobileSiderBreakpoint
+  const viewportChanged = nextIsMobile !== lastMobileSiderViewport
+  isMobileSiderViewport.value = nextIsMobile
+  lastMobileSiderViewport = nextIsMobile
+  if (themeStore.siderPosition === 'top') {
+    return
+  }
+  if (force || viewportChanged || !nextIsMobile) {
+    collapsed.value = nextIsMobile
+  }
+}
+
 // 初始化WebSocket和加载未读数
 onMounted(() => {
+  syncMobileSiderState(true)
+  window.addEventListener('resize', syncMobileSiderState)
   messageStore.initWebSocket()
   loadUnreadCount()
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', syncMobileSiderState)
+})
+
+watch(
+  () => themeStore.siderPosition,
+  () => {
+    syncMobileSiderState()
+  }
+)
 
 // 加载未读数量
 async function loadUnreadCount() {
@@ -606,47 +628,6 @@ async function handleChatClick(item: ChatMessage) {
   router.push({ path: '/message/chat', query: { userId: item.senderId?.toString() } })
 }
 
-// 搜索菜单
-function handleSearch() {
-  if (!searchKeyword.value.trim()) {
-    searchResults.value = []
-    return
-  }
-
-  const keyword = searchKeyword.value.toLowerCase()
-  const results: Array<{ key: string; label: string; path: string; iconName: string }> = []
-
-  // 遍历菜单获取所有可搜索项
-  function searchMenu(options: any[], parentPath: string = '') {
-    for (const item of options) {
-      const label = item.label as string
-      if (!label) {
-        continue
-      }
-      if (label.toLowerCase().includes(keyword)) {
-        if (!item.children) {
-          results.push({
-            key: item.key,
-            label: label,
-            path: parentPath ? `${parentPath} / ${label}` : label,
-            iconName: getIconName(item.key)
-          })
-        }
-      }
-      if (item.children) {
-        searchMenu(item.children, parentPath ? `${parentPath} / ${label}` : label)
-      }
-    }
-  }
-
-  searchMenu(menuOptions.value)
-  searchMenu(userShortcutOptions.value, '超级管理员')
-  searchMenu(systemManagementOptions.value, '后台管理 / 系统管理')
-  searchMenu(orgManagementOptions.value, '后台管理 / 组织管理')
-  searchMenu(systemLogOptions.value, '后台管理 / 系统日志')
-  searchResults.value = results.slice(0, 10)
-}
-
 // 获取图标名称
 function getIconName(key: string): string {
   const iconMapping: Record<string, string> = {
@@ -667,24 +648,11 @@ function getIconName(key: string): string {
     '/monitor/online': 'PeopleCircleOutline',
     '/monitor/job': 'TimerOutline',
     '/monitor/cache': 'ServerOutline',
-    '/monitor/server': 'DesktopOutline'
+    '/monitor/server': 'DesktopOutline',
+    '/personal/service/manage': 'OptionsOutline',
+    '/personal-service/manage': 'OptionsOutline'
   }
   return iconMapping[key] || 'MenuOutline'
-}
-
-// 跳转到菜单
-function goToMenu(item: { key: string }) {
-  navigateByKey(item.key)
-  searchVisible.value = false
-  searchKeyword.value = ''
-  searchResults.value = []
-}
-
-function handleSearchEnter() {
-  const firstResult = searchResults.value[0]
-  if (firstResult) {
-    goToMenu(firstResult)
-  }
 }
 
 function toggleSider() {
@@ -717,7 +685,8 @@ const iconMap: Record<string, any> = {
   CloudOutline,
   NotificationsOutline,
   ChatbubbleOutline,
-  CogOutline
+  CogOutline,
+  OptionsOutline
 }
 
 // 合并外部图标映射（已在顶部导入）
@@ -741,7 +710,10 @@ function normalizeMenuPath(menu: typeof userStore.menus[number]): string {
 
 function getMenuKey(menu: typeof userStore.menus[number]): string {
   const isExternal = menu.isFrame === 1 && menu.component
-  return isExternal ? `external:${menu.component}` : normalizeMenuPath(menu)
+  if (isExternal && menu.type !== 2) {
+    return `external:${menu.component}`
+  }
+  return normalizeMenuPath(menu)
 }
 
 function isSettingMenu(menu: typeof userStore.menus[number]): boolean {
@@ -1063,6 +1035,16 @@ function handleUserAction(key: string) {
   }
 }
 
+.sider-hidden-mode {
+  :deep(.n-layout-sider__border) {
+    display: none;
+  }
+
+  :deep(.n-layout-toggle-button) {
+    z-index: 10;
+  }
+}
+
 body.dark-theme .layout-sider {
   background: #18181c;
 }
@@ -1076,6 +1058,14 @@ body.dark-theme .layout-sider {
   border-bottom: 1px solid #E5E7EB;
   transition: all 0.3s;
 
+  &.logo-clickable {
+    cursor: pointer;
+  }
+
+  &.logo-clickable:hover {
+    background: #F9FAFB;
+  }
+
   &.logo-collapsed {
     padding: 0 16px;
     justify-content: center;
@@ -1084,6 +1074,10 @@ body.dark-theme .layout-sider {
 
 body.dark-theme .logo {
   border-bottom-color: #3f3f46;
+
+  &.logo-clickable:hover {
+    background: #27272a;
+  }
 }
 
 // 侧边栏logo区域应用主题色时的样式
@@ -1195,12 +1189,16 @@ body.dark-theme .layout-header {
   flex-shrink: 0;
 }
 
+.header-left-empty {
+  width: 0;
+}
+
 .header-brand {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 10px;
+  gap: 12px;
+  height: 44px;
+  padding: 0 12px;
   border: none;
   border-radius: 8px;
   background: transparent;
@@ -1215,29 +1213,29 @@ body.dark-theme .layout-header {
 
 .header-brand-img,
 .header-brand-icon {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
 }
 
 .header-brand-img {
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .header-brand-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #111827;
   color: #fff;
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 700;
 }
 
 .header-brand-text {
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
@@ -1255,22 +1253,12 @@ body.dark-theme .header-brand-icon {
   background: #27272a;
 }
 
-.header-center {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  min-width: 180px;
-}
-
-.header-search {
-  width: min(360px, 100%);
-}
-
 .header-right {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 320px;
+  min-width: 0;
   flex-shrink: 0;
   justify-content: flex-end;
 }
@@ -1527,6 +1515,51 @@ body.dark-theme .user-name {
   color: #ffffffd1;
 }
 
+@media (max-width: 720px) {
+  .layout-header {
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .header-left {
+    width: auto;
+    min-width: 0;
+  }
+
+  .header-left-empty {
+    display: none;
+  }
+
+  .header-brand {
+    gap: 8px;
+    padding: 0 4px;
+  }
+
+  .header-right {
+    width: auto;
+    gap: 6px;
+    flex: 0 1 auto;
+  }
+
+  .user-info {
+    gap: 6px;
+    padding: 6px;
+  }
+
+  .user-name,
+  .user-info .n-icon {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .header-brand-text {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 // 头部固定
 .layout-header {
   position: sticky;
@@ -1558,47 +1591,6 @@ body.dark-theme .layout-content {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-}
-
-/* 搜索面板 */
-.search-panel {
-  margin: -12px;
-  padding: 12px;
-}
-
-.search-results {
-  margin-top: 12px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.search-result-item {
-  display: flex;
-  align-items: center;
-  padding: 10px 12px;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: background 0.2s;
-
-  &:hover {
-    background: #f5f5f5;
-  }
-}
-
-.result-icon {
-  margin-right: 10px;
-  color: #666;
-}
-
-.result-label {
-  font-size: 14px;
-  color: #333;
-  flex: 1;
-}
-
-.result-path {
-  font-size: 12px;
-  color: #999;
 }
 
 /* 主题设置面板 */

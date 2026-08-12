@@ -43,6 +43,26 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/profile/index.vue'),
         meta: { title: '个人中心', icon: 'PersonOutline' }
       },
+      {
+        path: 'personal-service/manage',
+        name: 'PersonalServiceManage',
+        alias: 'personal/service/manage',
+        component: () => import('@/views/personal-service/manage/index.vue'),
+        meta: { title: '个人服务管理', icon: 'OptionsOutline' }
+      },
+      {
+        path: 'personal-service/:code',
+        name: 'PersonalServiceFrame',
+        alias: 'personal/service/:code',
+        component: () => import('@/views/personal-service/frame/index.vue'),
+        meta: { title: '个人服务', icon: 'SpeedometerOutline' }
+      },
+      {
+        path: 'server/router',
+        name: 'ServerRouter',
+        component: () => import('@/views/server/router/index.vue'),
+        meta: { title: '路由器管理', icon: 'SpeedometerOutline' }
+      },
       // 系统管理
       {
         path: 'system/user',
@@ -211,6 +231,7 @@ const router = createRouter({
 
 // 已添加的动态路由
 const addedRouteNames = new Set<string>()
+let dynamicRoutesReady = false
 
 /**
  * 根据菜单动态添加新路由（只添加静态路由中没有的）
@@ -220,13 +241,14 @@ export function addDynamicRoutes(menus: MenuInfo[]) {
   
   const addRoutes = (menuList: MenuInfo[]) => {
     for (const menu of menuList) {
-      // 只处理菜单类型(type=2)，且有 path
-      if (menu.type === 2 && menu.path) {
+      // 只处理菜单类型(type=2)。外链菜单可能没有显式 path，此时使用稳定兜底路径承载 iframe。
+      if (menu.type === 2 && (menu.path || (menu.isFrame === 1 && menu.component))) {
         const routeName = 'Dynamic-' + menu.id
         
         // 检查是否已经有同路径的静态路由
         const existingRoutes = router.getRoutes()
-        const menuPath = menu.path.startsWith('/') ? menu.path.slice(1) : menu.path
+        const rawMenuPath = menu.path || `menu-${menu.id}`
+        const menuPath = rawMenuPath.startsWith('/') ? rawMenuPath.slice(1) : rawMenuPath
         const pathExists = existingRoutes.some(r => r.path === '/' + menuPath || r.path === menuPath)
         
         if (pathExists) {
@@ -290,6 +312,7 @@ export function addDynamicRoutes(menus: MenuInfo[]) {
   }
   
   addRoutes(menus)
+  dynamicRoutesReady = true
   console.log('[动态路由] 当前所有路由:', router.getRoutes().map(r => r.path))
 }
 
@@ -303,6 +326,16 @@ export function resetRouter() {
     }
   })
   addedRouteNames.clear()
+  dynamicRoutesReady = false
+}
+
+function retryCurrentNavigation(to: any, next: any) {
+  next({
+    path: to.path,
+    query: to.query,
+    hash: to.hash,
+    replace: true
+  })
 }
 
 // 路由守卫
@@ -323,18 +356,20 @@ router.beforeEach(async (to, _from, next) => {
     return
   }
 
-  if (!userStore.user) {
-    try {
+  try {
+    if (!userStore.user) {
       await userStore.getInfo()
-      // 添加动态路由（只添加新的，不影响已有的）
+    }
+
+    if (!dynamicRoutesReady) {
       addDynamicRoutes(userStore.menus)
-      next({ ...to, replace: true })
-      return
-    } catch (error) {
-      userStore.logout()
-      next({ name: 'Login' })
+      retryCurrentNavigation(to, next)
       return
     }
+  } catch (error) {
+    userStore.logout()
+    next({ name: 'Login' })
+    return
   }
 
   next()

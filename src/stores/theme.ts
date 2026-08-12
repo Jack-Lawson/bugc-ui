@@ -3,6 +3,8 @@ import { ref, computed } from 'vue'
 import { darkTheme, type GlobalTheme } from 'naive-ui'
 import { storageKeys, themeDefaults } from '@/config/app'
 
+export type SiderPosition = 'left' | 'right' | 'top' | 'hidden'
+
 // 预设主题色
 export const themeColors = [
   { name: '深邃黑', color: '#111827' },
@@ -39,8 +41,8 @@ export const useThemeStore = defineStore('theme', () => {
   )
 
   // 菜单位置
-  const siderPosition = ref<'left' | 'right' | 'top'>(
-    (localStorage.getItem(storageKeys.layoutPosition) as 'left' | 'right' | 'top') || themeDefaults.siderPosition
+  const siderPosition = ref<SiderPosition>(
+    (localStorage.getItem(storageKeys.layoutPosition) as SiderPosition) || themeDefaults.siderPosition
   )
 
   // 是否显示页签
@@ -75,7 +77,7 @@ export const useThemeStore = defineStore('theme', () => {
   }
 
   // 设置菜单位置
-  function setSiderPosition(position: 'left' | 'right' | 'top') {
+  function setSiderPosition(position: SiderPosition) {
     siderPosition.value = position
     localStorage.setItem(storageKeys.layoutPosition, position)
   }

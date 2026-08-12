@@ -24,7 +24,7 @@
       </div>
       <!-- 右侧轮播Banner -->
       <div class="welcome-banner">
-        <n-carousel autoplay :interval="5000" dot-type="line" show-arrow="hover" class="banner-carousel">
+        <n-carousel autoplay :interval="5000" dot-type="line" :show-arrow="true" class="banner-carousel">
           <div v-for="(banner, index) in banners" :key="index" class="banner-item"
                :style="{ background: banner.bgColor }">
             <div class="banner-content">
@@ -528,9 +528,17 @@ onUnmounted(() => {
   :deep(.n-carousel__arrow) {
     background: rgba(255, 255, 255, 0.2);
     color: #fff;
+    opacity: 0;
+    transition: opacity 0.2s ease, background 0.2s ease;
 
     &:hover {
       background: rgba(255, 255, 255, 0.3);
+    }
+  }
+
+  &:hover {
+    :deep(.n-carousel__arrow) {
+      opacity: 1;
     }
   }
 }

@@ -145,9 +145,9 @@ export function createDefaultSystemConfigs(): Record<string, any> {
 
 export const themeDefaults = {
   mode: 'light',
-  siderPosition: 'left',
-  showTabs: true,
-  primaryColor: '#111827',
+  siderPosition: 'hidden',
+  showTabs: false,
+  primaryColor: '#2E5CF6',
   headerUsePrimaryColor: false
 } as const
 

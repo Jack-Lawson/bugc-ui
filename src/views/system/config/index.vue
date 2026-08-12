@@ -35,7 +35,9 @@
             <div class="config-content">
             <!-- 系统配置 -->
             <template v-if="group.groupCode === 'system'">
-              <n-form :model="configs.system" label-placement="left" label-width="120">
+              <n-form class="system-config-form" :model="configs.system" label-placement="left" label-width="120">
+                <div class="system-config-layout">
+                  <div class="system-config-column">
                 <div class="config-section-title">站点管理</div>
                 <n-form-item label="站点名称">
                   <n-input v-model:value="configs.system.siteName" placeholder="请输入站点名称" />
@@ -62,7 +64,7 @@
                         <span>点击上传Logo</span>
                       </div>
                     </n-upload>
-                    <n-input v-model:value="configs.system.siteLogo" placeholder="或输入Logo地址" style="margin-top: 8px" />
+                    <n-input class="logo-url-input" v-model:value="configs.system.siteLogo" placeholder="或输入Logo地址" />
                   </div>
                 </n-form-item>
                 <n-form-item label="版权信息">
@@ -87,7 +89,8 @@
                   <n-slider v-model:value="configs.system.watermarkOpacity" :min="0.01" :max="0.3" :step="0.01" style="width: 200px" />
                   <span class="form-hint" style="margin-left: 12px">{{ (configs.system.watermarkOpacity * 100).toFixed(0) }}%</span>
                 </n-form-item>
-                <n-divider />
+                  </div>
+                  <div class="system-config-column">
                 <div class="config-section-title">样式管理</div>
                 <n-form-item label="菜单位置">
                   <div class="layout-options">
@@ -123,6 +126,17 @@
                         <div class="preview-content"></div>
                       </div>
                       <span>顶部菜单</span>
+                    </div>
+                    <div
+                      class="layout-option"
+                      :class="{ active: themeStore.siderPosition === 'hidden' }"
+                      @click="themeStore.setSiderPosition('hidden')"
+                    >
+                      <div class="layout-preview layout-hidden">
+                        <div class="preview-main"></div>
+                        <div class="preview-trigger"></div>
+                      </div>
+                      <span>隐藏菜单</span>
                     </div>
                   </div>
                 </n-form-item>
@@ -167,6 +181,8 @@
                 <n-form-item label="显示页签">
                   <n-switch :value="themeStore.showTabs" @update:value="themeStore.setShowTabs" size="small" />
                 </n-form-item>
+                  </div>
+                </div>
               </n-form>
             </template>
 
@@ -1876,6 +1892,120 @@ body.dark-theme .config-card {
   }
 }
 
+.system-config-layout {
+  display: grid;
+  grid-template-columns: minmax(420px, 560px) minmax(360px, 1fr);
+  gap: 40px;
+
+  :deep(.n-input),
+  :deep(.n-select),
+  :deep(.n-input-number) {
+    max-width: 400px;
+  }
+}
+
+.system-config-form {
+  max-width: none;
+}
+
+.system-config-column {
+  min-width: 0;
+}
+
+@media (max-width: 1200px) {
+  .system-config-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-container {
+    overflow-x: hidden;
+  }
+
+  .config-card {
+    min-height: calc(100vh - 120px);
+  }
+
+  .config-card :deep(.n-card__content) {
+    padding: 20px 18px;
+  }
+
+  .config-card :deep(.n-space) {
+    flex-wrap: wrap;
+  }
+
+  .config-content {
+    padding: 16px 0;
+
+    :deep(.n-form) {
+      max-width: none;
+    }
+
+    :deep(.n-form-item) {
+      display: grid !important;
+      grid-template-columns: 112px minmax(0, 1fr) !important;
+      column-gap: 14px;
+    }
+
+    :deep(.n-form-item-label) {
+      justify-content: flex-end;
+      width: 112px !important;
+      height: auto;
+      padding: 8px 0 0 !important;
+      text-align: right;
+    }
+
+    :deep(.n-form-item-blank) {
+      width: 100%;
+      min-width: 0;
+    }
+
+    :deep(.n-input),
+    :deep(.n-select),
+    :deep(.n-input-number),
+    :deep(.n-slider) {
+      width: 100% !important;
+      max-width: none;
+    }
+  }
+
+  .system-config-layout {
+    gap: 12px;
+
+    :deep(.n-input),
+    :deep(.n-select),
+    :deep(.n-input-number) {
+      max-width: none;
+    }
+  }
+
+  .config-section-title {
+    margin-left: 0;
+  }
+
+  .config-tabs :deep(.n-tabs-nav) {
+    padding: 0;
+  }
+
+  .config-tabs :deep(.n-tabs-nav__prefix) {
+    padding-right: 4px;
+  }
+
+  .config-tabs :deep(.n-tabs-nav__suffix) {
+    padding-left: 4px;
+  }
+
+  .config-tabs :deep(.n-tabs-wrapper) {
+    padding: 0 4px;
+  }
+
+  .config-tabs :deep(.n-tabs-tab) {
+    padding: 10px 14px;
+  }
+}
+
 /* 短信配置左右布局 */
 .sms-config-layout {
   display: flex;
@@ -1968,14 +2098,19 @@ body.dark-theme .config-card {
 }
 
 .config-tabs :deep(.n-tabs-wrapper) {
-  padding: 0 12px;
+  padding: 0 8px;
   box-sizing: border-box;
+  min-width: 0;
 }
 
 .config-tabs :deep(.n-tabs-tab-wrapper),
 .config-tabs :deep(.n-tabs-tab) {
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+.config-tabs :deep(.n-tabs-tab) {
+  min-width: max-content;
 }
 
 .config-section-title {
@@ -2064,6 +2199,28 @@ body.dark-theme .config-card {
   }
 }
 
+.layout-hidden {
+  position: relative;
+
+  .preview-main {
+    flex: 1;
+    background: #f5f5f5;
+  }
+
+  .preview-trigger {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 10px;
+    height: 18px;
+    border: 1px solid #d1d5db;
+    border-left: 0;
+    border-radius: 0 9px 9px 0;
+    background: #fff;
+    transform: translateY(-50%);
+  }
+}
+
 .theme-modes {
   display: flex;
   gap: 16px;
@@ -2146,6 +2303,10 @@ body.dark-theme .config-card {
 
 .logo-upload {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .logo-preview {
@@ -2191,6 +2352,11 @@ body.dark-theme .config-card {
     margin-top: 8px;
     font-size: 13px;
   }
+}
+
+.logo-url-input {
+  width: 100%;
+  max-width: 480px !important;
 }
 
 :deep(.n-collapse-item__header-main) {
