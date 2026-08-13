@@ -207,6 +207,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/tool/gen/index.vue'),
         meta: { title: '代码生成', icon: 'CodeSlashOutline' }
       },
+      {
+        path: 'tools/hb',
+        name: 'ToolsHb',
+        component: () => import('@/views/tools/hb/index.vue'),
+        meta: { title: '生日祝福', icon: 'FlowerOutline' }
+      },
       // 页签刷新中转路由
       {
         path: 'redirect/:path(.*)',

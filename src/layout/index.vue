@@ -15,7 +15,6 @@
       :collapsed-width="siderCollapsedWidth"
       :width="240"
       :collapsed="collapsed"
-      show-trigger
       :position="layoutConfig.siderPosition === 'right' ? 'right' : 'left'"
       @collapse="collapsed = true"
       @expand="collapsed = false"
@@ -56,6 +55,19 @@
         class="layout-menu"
       />
     </n-layout-sider>
+
+    <button
+      v-if="layoutConfig.siderPosition !== 'top'"
+      class="layout-sider-toggle"
+      type="button"
+      :style="siderToggleStyle"
+      :title="collapsed ? '展开菜单' : '隐藏菜单'"
+      @click.stop="toggleSider"
+    >
+      <n-icon size="22">
+        <component :is="siderToggleIcon" />
+      </n-icon>
+    </button>
 
     <!-- 主内容区 -->
     <n-layout>
@@ -328,6 +340,7 @@ import {
   LogOutOutline,
   KeyOutline,
   ChevronBackOutline,
+  ChevronForwardOutline,
   ChevronDownOutline,
   BookOutline,
   BusinessOutline,
@@ -658,6 +671,23 @@ function getIconName(key: string): string {
 function toggleSider() {
   collapsed.value = !collapsed.value
 }
+
+const siderToggleStyle = computed(() => {
+  const edge = collapsed.value ? siderCollapsedWidth.value : 240
+  const offset = `${Math.max(12, edge - 18)}px`
+
+  return layoutConfig.siderPosition === 'right'
+    ? { right: offset }
+    : { left: offset }
+})
+
+const siderToggleIcon = computed(() => {
+  const isRightSider = layoutConfig.siderPosition === 'right'
+  if (isRightSider) {
+    return collapsed.value ? ChevronBackOutline : ChevronForwardOutline
+  }
+  return collapsed.value ? ChevronForwardOutline : ChevronBackOutline
+})
 
 // 图标映射
 const iconMap: Record<string, any> = {
@@ -1040,13 +1070,46 @@ function handleUserAction(key: string) {
     display: none;
   }
 
-  :deep(.n-layout-toggle-button) {
-    z-index: 10;
-  }
+}
+
+.layout-sider-toggle {
+  position: fixed;
+  top: 50%;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  color: #64748b;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 50%;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+  transform: translateY(-50%);
+  transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.layout-sider-toggle:hover {
+  color: var(--primary-color, #2563eb);
+  border-color: var(--primary-color, #2563eb);
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.18);
+}
+
+.layout-sider-toggle:active {
+  transform: translateY(-50%) scale(0.96);
 }
 
 body.dark-theme .layout-sider {
   background: #18181c;
+}
+
+body.dark-theme .layout-sider-toggle {
+  color: #a1a1aa;
+  background: #18181c;
+  border-color: #3f3f46;
 }
 
 .logo {

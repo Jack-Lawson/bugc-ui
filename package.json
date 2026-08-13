@@ -15,6 +15,7 @@
     "axios": "^1.6.5",
     "disable-devtool": "^0.3.9",
     "echarts": "^6.0.0",
+    "gsap": "^3.15.0",
     "jsencrypt": "^3.3.2",
     "naive-ui": "^2.37.3",
     "pinia": "^2.1.7",
