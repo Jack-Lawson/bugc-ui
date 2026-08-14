@@ -57,7 +57,7 @@
     </n-layout-sider>
 
     <button
-      v-if="layoutConfig.siderPosition !== 'top'"
+      v-if="layoutConfig.siderPosition !== 'top' && (!isMobileSiderViewport || !collapsed)"
       class="layout-sider-toggle"
       type="button"
       :style="siderToggleStyle"
@@ -70,7 +70,7 @@
     </button>
 
     <!-- 主内容区 -->
-    <n-layout>
+    <n-layout class="layout-main">
       <!-- 顶部导航 -->
       <n-layout-header bordered class="layout-header" :class="[`theme-${layoutConfig.theme}`, { 'header-primary': themeStore.headerUsePrimaryColor }]" :style="headerStyle">
         <!-- 顶部菜单模式下的Logo -->
@@ -1051,7 +1051,11 @@ function handleUserAction(key: string) {
 
 <style lang="scss" scoped>
 .layout {
-  height: 100vh;
+  min-height: 100dvh;
+}
+
+.layout-main {
+  min-width: 0;
 }
 
 .layout-sider {
@@ -1640,6 +1644,11 @@ body.dark-theme .user-name {
 .layout-content {
   background: #F3F4F6;
   transition: background-color 0.3s;
+
+  :deep(.n-layout-scroll-container) {
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
 }
 
 body.dark-theme .layout-content {

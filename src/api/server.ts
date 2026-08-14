@@ -24,6 +24,22 @@ export interface ServerPageParams {
   status?: number
 }
 
+export interface ServerRuntimeStatus {
+  serverId?: number
+  name?: string
+  host?: string
+  port?: number
+  status?: 'online' | 'offline' | 'unknown'
+  collectedAt?: string
+  errorMessage?: string
+  cpu?: Record<string, any>
+  memory?: Record<string, any>
+  jvm?: Record<string, any>
+  sys?: Record<string, any>
+  networks?: Array<Record<string, any>>
+  disks?: Array<Record<string, any>>
+}
+
 export const serverApi = {
   // 分页查询
   list(params: ServerPageParams) {
@@ -107,6 +123,14 @@ export const serverApi = {
       url: '/monitor/server-manager/test',
       method: 'post',
       data
+    })
+  },
+
+  // 获取远程服务器运行状态
+  getStatus(id: number) {
+    return request<ServerRuntimeStatus>({
+      url: `/monitor/server-manager/${id}/status`,
+      method: 'get'
     })
   }
 }

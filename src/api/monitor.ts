@@ -173,6 +173,138 @@ export const serverApi = {
   }
 }
 
+export interface ServerMonitorTarget {
+  targetKey: string
+  targetType: 'local' | 'ssh'
+  serverId?: number
+  name: string
+  status: 'pending' | 'normal' | 'error' | string
+  lastCollectTime?: string
+  primaryNetwork?: string
+  primaryAddress?: string
+  entryIp?: string
+  username?: string
+  lastConnectTime?: string
+  summary?: ServerMonitorSummary
+}
+
+export interface ServerMonitorAvailableServer {
+  id: number
+  name: string
+  host?: string
+  port?: number
+  username?: string
+  lastConnectTime?: string
+}
+
+export interface ServerMonitorProfile {
+  targetKey?: string
+  targetType?: 'local' | 'ssh'
+  displayName?: string
+  hostName?: string
+  entryIp?: string
+  osName?: string
+  osVersion?: string
+  kernelVersion?: string
+  kernelName?: string
+  arch?: string
+  timezone?: string
+  bootTime?: string
+  uptime?: string
+  cpuCores?: number
+  cpuThreads?: number
+  cpuVendor?: string
+  cpuModel?: string
+  memoryTotal?: string
+  swapTotal?: string
+  rootDiskTotal?: string
+  diskTotal?: string
+  diskCount?: number
+  virtualization?: string
+  packageManager?: string
+  primaryNetwork?: string
+  primaryAddress?: string
+  profileStatus?: string
+  lastCollectTime?: string
+  lastError?: string
+}
+
+export interface ServerMonitorSummary {
+  status?: string
+  collectedAt?: string
+  cpuPercent?: number
+  memoryPercent?: number
+  diskPercent?: number
+  rxRate?: number
+  txRate?: number
+  primaryNetwork?: string
+}
+
+export interface ServerMonitorSeriesPoint {
+  time: string
+  collectedAt?: string
+  cpuPercent?: number
+  memoryPercent?: number
+  diskPercent?: number
+  rxRate?: number
+  txRate?: number
+}
+
+export interface ServerMonitorDashboard {
+  target: ServerMonitorTarget & {
+    monitorEnabled?: number
+    collectIntervalSeconds?: number
+  }
+  profile: ServerMonitorProfile
+  summary: ServerMonitorSummary
+  latest: {
+    cpu?: Record<string, any>
+    memory?: Record<string, any>
+    jvm?: Record<string, any>
+    sys?: Record<string, any>
+    networks?: Array<Record<string, any>>
+    disks?: Array<Record<string, any>>
+    status?: string
+    errorMessage?: string
+    collectedAt?: string
+  }
+  series: ServerMonitorSeriesPoint[]
+  stale: boolean
+}
+
+export const serverMonitorApi = {
+  targets(): Promise<ServerMonitorTarget[]> {
+    return request({ url: '/monitor/server-monitor/targets', method: 'get' })
+  },
+  availableServers(): Promise<ServerMonitorAvailableServer[]> {
+    return request({ url: '/monitor/server-monitor/available-servers', method: 'get' })
+  },
+  dashboard(targetKey: string): Promise<ServerMonitorDashboard> {
+    return request({
+      url: `/monitor/server-monitor/targets/${encodeURIComponent(targetKey)}/dashboard`,
+      method: 'get'
+    })
+  },
+  refreshProfile(targetKey: string): Promise<ServerMonitorDashboard> {
+    return request({
+      url: `/monitor/server-monitor/targets/${encodeURIComponent(targetKey)}/refresh-profile`,
+      method: 'post'
+    })
+  },
+  enableServer(serverId: number): Promise<ServerMonitorDashboard> {
+    return request({
+      url: `/monitor/server-monitor/servers/${serverId}/enable`,
+      method: 'post'
+    })
+  },
+  removeTarget(targetKey: string) {
+    return request({
+      url: `/monitor/server-monitor/targets/${encodeURIComponent(targetKey)}`,
+      method: 'delete'
+    })
+  }
+}
+
 // ==================== API 访问统计 ====================
 export interface ApiAccessLog {
   id?: number

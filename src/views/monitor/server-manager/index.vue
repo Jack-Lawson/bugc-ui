@@ -68,6 +68,10 @@
             <template #icon><n-icon><FlashOutline /></n-icon></template>
             测试
           </n-button>
+          <n-button size="small" @click="handleMonitor(server)" :loading="monitoringId === server.id" :disabled="server.status !== 1">
+            <template #icon><n-icon><StatsChartOutline /></n-icon></template>
+            监控
+          </n-button>
           <n-button size="small" @click="handleEdit(server)">
             <template #icon><n-icon><CreateOutline /></n-icon></template>
             编辑
@@ -178,9 +182,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { useMessage, type FormInst, type FormRules } from 'naive-ui'
-import { SearchOutline, AddOutline, ServerOutline, TerminalOutline, FlashOutline, CreateOutline, TrashOutline, ExpandOutline, ContractOutline, CloseOutline } from '@vicons/ionicons5'
+import { SearchOutline, AddOutline, ServerOutline, TerminalOutline, FlashOutline, CreateOutline, TrashOutline, ExpandOutline, ContractOutline, CloseOutline, StatsChartOutline } from '@vicons/ionicons5'
 import { serverApi, type Server } from '@/api/server'
+import { serverMonitorApi } from '@/api/monitor'
 import { useUserStore } from '@/stores/user'
 import { buildWebSocketUrl, websocketConfig } from '@/config/app'
 import { Terminal } from '@xterm/xterm'
@@ -188,6 +194,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 
 const message = useMessage()
+const router = useRouter()
 
 // 列表数据
 const servers = ref<Server[]>([])
@@ -195,6 +202,7 @@ const loading = ref(false)
 const searchName = ref('')
 const searchStatus = ref<number | null>(null)
 const testingId = ref<number | null>(null)
+const monitoringId = ref<number | null>(null)
 
 const statusOptions = [
   { label: '启用', value: 1 },
@@ -328,6 +336,21 @@ async function handleTest(server: Server) {
     message.error('连接测试失败')
   } finally {
     testingId.value = null
+  }
+}
+
+// 加入或打开监控
+async function handleMonitor(server: Server) {
+  if (!server.id) return
+  monitoringId.value = server.id
+  try {
+    const dashboard = await serverMonitorApi.enableServer(server.id)
+    message.success('已加入服务监控')
+    await router.push({ path: '/monitor/server', query: { targetKey: dashboard.target?.targetKey || `server:${server.id}` } })
+  } catch (error) {
+    message.error('打开监控失败')
+  } finally {
+    monitoringId.value = null
   }
 }
 
@@ -543,16 +566,29 @@ onUnmounted(() => {
 
 .server-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(340px, 390px));
   gap: 20px;
+  justify-content: start;
 }
 
 .server-card {
+  width: 100%;
+  max-width: 390px;
   transition: transform 0.2s, box-shadow 0.2s;
 
   &:hover {
     transform: translateY(-4px);
     box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+  }
+}
+
+@media (max-width: 768px) {
+  .server-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .server-card {
+    max-width: none;
   }
 }
 
