@@ -123,7 +123,30 @@
           <n-input v-model:value="formData.password" type="password" show-password-on="click" :placeholder="editingServer ? '不修改请留空' : '请输入密码'" />
         </n-form-item>
         <n-form-item v-if="formData.authType === 2" label="私钥" path="privateKey">
-          <n-input v-model:value="formData.privateKey" type="textarea" :rows="4" placeholder="请粘贴私钥内容" />
+          <div
+            class="private-key-import"
+            :class="{ dragging: privateKeyDragging }"
+            @dragenter.prevent="handlePrivateKeyDragEnter"
+            @dragover.prevent="handlePrivateKeyDragEnter"
+            @dragleave.prevent="handlePrivateKeyDragLeave"
+            @drop.prevent="handlePrivateKeyDrop"
+          >
+            <n-input v-model:value="formData.privateKey" type="textarea" :rows="4" placeholder="请粘贴私钥内容，或拖入私钥文件" />
+            <div class="private-key-tools">
+              <n-button size="small" secondary @click="triggerPrivateKeyFile">
+                <template #icon><n-icon><CloudUploadOutline /></n-icon></template>
+                导入私钥文件
+              </n-button>
+              <span class="private-key-hint">{{ privateKeyFileHint }}</span>
+            </div>
+          </div>
+          <input
+            ref="privateKeyFileInput"
+            class="private-key-file-input"
+            type="file"
+            accept=".pem,.key,.ppk,.txt,.rsa,.openssh"
+            @change="handlePrivateKeyFileChange"
+          >
         </n-form-item>
         <n-form-item v-if="formData.authType === 2" label="私钥密码">
           <n-input v-model:value="formData.passphrase" type="password" show-password-on="click" placeholder="如有请输入" />
@@ -141,7 +164,7 @@
       <template #footer>
         <n-space justify="end">
           <n-button @click="handleTestForm" :loading="testingForm">测试连接</n-button>
-          <n-button @click="showModal = false">取消</n-button>
+          <n-button @click="handleCancel">取消</n-button>
           <n-button type="primary" @click="handleSubmit" :loading="submitting">确定</n-button>
         </n-space>
       </template>
@@ -181,10 +204,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage, type FormInst, type FormRules } from 'naive-ui'
-import { SearchOutline, AddOutline, ServerOutline, TerminalOutline, FlashOutline, CreateOutline, TrashOutline, ExpandOutline, ContractOutline, CloseOutline, StatsChartOutline } from '@vicons/ionicons5'
+import { SearchOutline, AddOutline, ServerOutline, TerminalOutline, FlashOutline, CreateOutline, TrashOutline, ExpandOutline, ContractOutline, CloseOutline, StatsChartOutline, CloudUploadOutline } from '@vicons/ionicons5'
 import { serverApi, type Server } from '@/api/server'
 import { serverMonitorApi } from '@/api/monitor'
 import { useUserStore } from '@/stores/user'
@@ -215,6 +238,10 @@ const formRef = ref<FormInst | null>(null)
 const editingServer = ref<Server | null>(null)
 const submitting = ref(false)
 const testingForm = ref(false)
+const privateKeyFileInput = ref<HTMLInputElement | null>(null)
+const privateKeyDragging = ref(false)
+const privateKeyFileHint = ref('支持拖拽或选择文本私钥文件')
+const PRIVATE_KEY_FILE_MAX_SIZE = 128 * 1024
 
 const formData = ref<Server>({
   name: '',
@@ -237,6 +264,20 @@ const rules: FormRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   authType: [{ required: true, type: 'number', message: '请选择认证方式', trigger: 'change' }]
 }
+
+watch(() => formData.value.authType, (authType) => {
+  if (authType === 1) {
+    formData.value.privateKey = ''
+    formData.value.passphrase = ''
+    clearPrivateKeyImport()
+  }
+})
+
+watch(showModal, (visible) => {
+  if (!visible) {
+    clearSensitiveFormFields()
+  }
+})
 
 // 终端相关
 const showTerminal = ref(false)
@@ -287,6 +328,7 @@ async function loadServers() {
 // 新增
 function handleAdd() {
   editingServer.value = null
+  clearPrivateKeyImport()
   formData.value = {
     name: '',
     host: '',
@@ -306,8 +348,94 @@ function handleAdd() {
 // 编辑
 function handleEdit(server: Server) {
   editingServer.value = server
+  clearPrivateKeyImport()
   formData.value = { ...server, password: '', privateKey: '', passphrase: '' }
   showModal.value = true
+}
+
+function handleCancel() {
+  clearSensitiveFormFields()
+  showModal.value = false
+}
+
+function triggerPrivateKeyFile() {
+  privateKeyFileInput.value?.click()
+}
+
+function handlePrivateKeyDragEnter() {
+  privateKeyDragging.value = true
+}
+
+function handlePrivateKeyDragLeave(event: DragEvent) {
+  const currentTarget = event.currentTarget as HTMLElement | null
+  const relatedTarget = event.relatedTarget as Node | null
+  if (!currentTarget || !relatedTarget || !currentTarget.contains(relatedTarget)) {
+    privateKeyDragging.value = false
+  }
+}
+
+function handlePrivateKeyDrop(event: DragEvent) {
+  privateKeyDragging.value = false
+  const file = event.dataTransfer?.files?.[0]
+  if (file) {
+    readPrivateKeyFile(file)
+  }
+}
+
+function handlePrivateKeyFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (file) {
+    readPrivateKeyFile(file)
+  }
+  input.value = ''
+}
+
+function readPrivateKeyFile(file: File) {
+  if (file.size > PRIVATE_KEY_FILE_MAX_SIZE) {
+    message.error('私钥文件过大，请选择128KB以内的文本文件')
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = () => {
+    const content = typeof reader.result === 'string' ? reader.result.trim() : ''
+    if (!content) {
+      message.error('未读取到私钥内容')
+      return
+    }
+    if (!looksLikePrivateKey(content)) {
+      message.warning('文件内容不像常见私钥格式，请确认后再保存')
+    }
+    formData.value.privateKey = content
+    privateKeyFileHint.value = '已读取私钥内容，保存后会自动清空本地输入'
+    message.success('私钥内容已导入')
+  }
+  reader.onerror = () => {
+    message.error('读取私钥文件失败')
+  }
+  reader.readAsText(file)
+}
+
+function looksLikePrivateKey(content: string) {
+  return /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(content)
+    || content.startsWith('PuTTY-User-Key-File-')
+    || content.startsWith('openssh-key-v1')
+}
+
+function clearPrivateKeyImport() {
+  privateKeyDragging.value = false
+  privateKeyFileHint.value = '支持拖拽或选择文本私钥文件'
+  if (privateKeyFileInput.value) {
+    privateKeyFileInput.value.value = ''
+  }
+}
+
+function clearSensitiveFormFields() {
+  formData.value.password = ''
+  formData.value.privateKey = ''
+  formData.value.passphrase = ''
+  clearPrivateKeyImport()
 }
 
 // 删除
@@ -407,6 +535,7 @@ async function handleSubmit() {
       message.success('添加成功')
     }
     
+    clearSensitiveFormFields()
     showModal.value = false
     loadServers()
   } catch (error) {
@@ -668,6 +797,38 @@ onUnmounted(() => {
 .empty-state {
   grid-column: 1 / -1;
   padding: 60px 0;
+}
+
+.private-key-import {
+  width: 100%;
+  padding: 8px;
+  border: 1px dashed transparent;
+  border-radius: 8px;
+  transition: border-color 0.2s, background-color 0.2s;
+
+  &.dragging {
+    border-color: #3366ff;
+    background: rgba(51, 102, 255, 0.06);
+  }
+}
+
+.private-key-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  min-height: 28px;
+}
+
+.private-key-hint {
+  min-width: 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.private-key-file-input {
+  display: none;
 }
 
 // 终端弹窗

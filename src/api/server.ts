@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import { encryptSensitiveFields } from '@/utils/crypto'
 
 export interface Server {
   id?: number
@@ -67,20 +68,22 @@ export const serverApi = {
   },
 
   // 新增
-  add(data: Server) {
+  async add(data: Server) {
+    const encryptedData = await encryptSensitiveFields(data, ['password', 'privateKey', 'passphrase'])
     return request({
       url: '/monitor/server-manager',
       method: 'post',
-      data
+      data: encryptedData
     })
   },
 
   // 修改
-  update(data: Server) {
+  async update(data: Server) {
+    const encryptedData = await encryptSensitiveFields(data, ['password', 'privateKey', 'passphrase'])
     return request({
       url: '/monitor/server-manager',
       method: 'put',
-      data
+      data: encryptedData
     })
   },
 
@@ -110,7 +113,7 @@ export const serverApi = {
   },
 
   // 测试连接（通过参数）
-  testConnectionByParams(data: {
+  async testConnectionByParams(data: {
     host: string
     port: number
     username: string
@@ -119,10 +122,11 @@ export const serverApi = {
     privateKey?: string
     passphrase?: string
   }) {
+    const encryptedData = await encryptSensitiveFields(data, ['password', 'privateKey', 'passphrase'])
     return request<boolean>({
       url: '/monitor/server-manager/test',
       method: 'post',
-      data
+      data: encryptedData
     })
   },
 

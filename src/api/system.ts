@@ -1,5 +1,6 @@
 import { request } from '@/utils/request'
 import { buildApiUrl } from '@/config/app'
+import { encryptSensitiveFields } from '@/utils/crypto'
 
 // 分页结果
 export interface PageResult<T> {
@@ -59,12 +60,14 @@ export const userApi = {
     return request({ url: `/sys/user/${id}`, method: 'get' })
   },
   
-  create(data: { user: SysUser; roleIds: number[]; postIds: number[] }): Promise<void> {
-    return request({ url: '/sys/user', method: 'post', data })
+  async create(data: { user: SysUser; roleIds: number[]; postIds: number[] }): Promise<void> {
+    const encryptedData = await encryptSensitiveFields(data, ['password'])
+    return request({ url: '/sys/user', method: 'post', data: encryptedData })
   },
   
-  update(data: { user: SysUser; roleIds: number[]; postIds: number[] }): Promise<void> {
-    return request({ url: '/sys/user', method: 'put', data })
+  async update(data: { user: SysUser; roleIds: number[]; postIds: number[] }): Promise<void> {
+    const encryptedData = await encryptSensitiveFields(data, ['password'])
+    return request({ url: '/sys/user', method: 'put', data: encryptedData })
   },
   
   delete(id: number): Promise<void> {
@@ -454,12 +457,14 @@ export const fileConfigApi = {
     return request({ url: '/sys/file-config/master', method: 'get' })
   },
   
-  create(data: SysFileConfig): Promise<void> {
-    return request({ url: '/sys/file-config', method: 'post', data })
+  async create(data: SysFileConfig): Promise<void> {
+    const encryptedData = await encryptSensitiveFields(data, ['secretKey'])
+    return request({ url: '/sys/file-config', method: 'post', data: encryptedData })
   },
   
-  update(data: SysFileConfig): Promise<void> {
-    return request({ url: '/sys/file-config', method: 'put', data })
+  async update(data: SysFileConfig): Promise<void> {
+    const encryptedData = await encryptSensitiveFields(data, ['secretKey'])
+    return request({ url: '/sys/file-config', method: 'put', data: encryptedData })
   },
   
   delete(id: number): Promise<void> {
@@ -470,7 +475,8 @@ export const fileConfigApi = {
     return request({ url: `/sys/file-config/master/${id}`, method: 'put' })
   },
   
-  testConfig(data: SysFileConfig): Promise<boolean> {
-    return request({ url: '/sys/file-config/test', method: 'post', data })
+  async testConfig(data: SysFileConfig): Promise<boolean> {
+    const encryptedData = await encryptSensitiveFields(data, ['secretKey'])
+    return request({ url: '/sys/file-config/test', method: 'post', data: encryptedData })
   }
 }
