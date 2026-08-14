@@ -1,5 +1,6 @@
 import { request } from '@/utils/request'
 import { PageResult } from './system'
+import { encryptSensitiveFields } from '@/utils/crypto'
 
 // ==================== 部门管理 ====================
 export interface SysDept {
@@ -176,8 +177,9 @@ export const configGroupApi = {
   getByCode(groupCode: string): Promise<SysConfigGroup> {
     return request({ url: `/sys/config-group/${groupCode}`, method: 'get' })
   },
-  save(groupCode: string, config: Record<string, any>): Promise<void> {
-    return request({ url: `/sys/config-group/${groupCode}`, method: 'post', data: config })
+  async save(groupCode: string, config: Record<string, any>): Promise<void> {
+    const encryptedConfig = await encryptSensitiveFields(config)
+    return request({ url: `/sys/config-group/${groupCode}`, method: 'post', data: encryptedConfig })
   },
   refresh(): Promise<void> {
     return request({ url: '/sys/config-group/refresh', method: 'post' })

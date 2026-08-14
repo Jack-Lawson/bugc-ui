@@ -44,6 +44,55 @@ export function rsaEncrypt(data: string, publicKey: string): string {
 }
 
 /**
+ * 字节数组转Base64
+ */
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte)
+  })
+  return btoa(binary)
+}
+
+/**
+ * ArrayBuffer转Base64
+ */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  return bytesToBase64(new Uint8Array(buffer))
+}
+
+/**
+ * 生成随机字节
+ */
+function randomBytes(length: number): Uint8Array {
+  const bytes = new Uint8Array(length)
+  crypto.getRandomValues(bytes)
+  return bytes
+}
+
+/**
+ * 混合加密字段，支持长文本。
+ */
+export async function hybridEncrypt(data: string, publicKey: string): Promise<string> {
+  const aesKeyBytes = randomBytes(32)
+  const iv = randomBytes(12)
+  const aesKey = await crypto.subtle.importKey(
+    'raw',
+    aesKeyBytes,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt']
+  )
+  const encryptedData = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    aesKey,
+    new TextEncoder().encode(data)
+  )
+  const encryptedKey = rsaEncrypt(bytesToBase64(aesKeyBytes), publicKey)
+  return `HYB:v1:${encryptedKey}:${bytesToBase64(iv)}:${arrayBufferToBase64(encryptedData)}`
+}
+
+/**
  * RSA解密（使用公钥解密私钥加密的数据）
  */
 export function rsaDecrypt(data: string, publicKey: string): string {
@@ -66,7 +115,7 @@ export async function encryptPassword(password: string): Promise<string> {
     return password
   }
   
-  return rsaEncrypt(password, config.publicKey)
+  return hybridEncrypt(password, config.publicKey)
 }
 
 /**
@@ -76,6 +125,36 @@ export async function encryptPasswordFields<T extends Record<string, any>>(
   data: T,
   fields: string[] = ['password', 'oldPassword', 'newPassword']
 ): Promise<T> {
+  return encryptSensitiveFields(data, fields)
+}
+
+/**
+ * 递归加密对象中的敏感字段。
+ */
+export async function encryptSensitiveFields<T extends Record<string, any>>(
+  data: T,
+  fields: string[] = [
+    'password',
+    'oldPassword',
+    'newPassword',
+    'privateKey',
+    'passphrase',
+    'secretKey',
+    'accessKeySecret',
+    'appSecret',
+    'clientSecret',
+    'apiV3Key',
+    'aesKey',
+    'token',
+    'minioSecretKey',
+    'aliyunSecretKey',
+    'tencentSecretKey',
+    'rustfsSecretKey',
+    'tokenId',
+    'signName',
+    'encryptPrivateKey'
+  ]
+): Promise<T> {
   const config = await getCryptoConfig()
   
   if (!config.enabled || !config.publicKey) {
@@ -83,14 +162,30 @@ export async function encryptPasswordFields<T extends Record<string, any>>(
   }
   
   const result = { ...data }
-  
-  for (const field of fields) {
-    if (result[field] && typeof result[field] === 'string') {
-      result[field] = rsaEncrypt(result[field], config.publicKey)
-    }
-  }
+  await encryptObjectFields(result, new Set(fields), config.publicKey)
   
   return result
+}
+
+async function encryptObjectFields(target: Record<string, any>, fields: Set<string>, publicKey: string) {
+  for (const key of Object.keys(target)) {
+    const value = target[key]
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      await encryptObjectFields(value, fields, publicKey)
+      continue
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item && typeof item === 'object') {
+          await encryptObjectFields(item, fields, publicKey)
+        }
+      }
+      continue
+    }
+    if (fields.has(key) && typeof value === 'string' && value) {
+      target[key] = await hybridEncrypt(value, publicKey)
+    }
+  }
 }
 
 /**
