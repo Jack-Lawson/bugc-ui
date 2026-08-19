@@ -2,7 +2,7 @@
   <div class="page-container">
     <!-- 统计图表 -->
     <div class="stats-section">
-      <n-grid :cols="2" :x-gap="16" :y-gap="16">
+      <n-grid :cols="chartGridCols" :x-gap="16" :y-gap="16" responsive="screen">
         <n-gi>
           <n-card title="内存使用" size="small" :bordered="false" content-style="background: transparent">
             <div ref="memoryChartRef" class="chart-box"></div>
@@ -33,7 +33,7 @@
             <n-input v-model:value="searchPattern" placeholder="请输入键名模式" clearable style="width: 300px" />
           </n-form-item>
           <n-form-item>
-            <n-button type="primary" @click="loadKeys">
+            <n-button type="primary" @click="handleSearch">
               <template #icon><n-icon><SearchOutline /></n-icon></template>
               搜索
             </n-button>
@@ -41,7 +41,27 @@
         </n-form>
       </div>
 
-      <n-data-table :columns="columns" :data="keys" :loading="keysLoading" :row-key="(row: string) => row" />
+      <n-data-table
+        :columns="columns"
+        :data="keys"
+        :loading="keysLoading"
+        :row-key="(row: string) => row"
+        remote
+      />
+      <div class="pagination">
+        <n-pagination
+          v-model:page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :item-count="pagination.itemCount"
+          :page-sizes="pagination.pageSizes"
+          show-size-picker
+          show-quick-jumper
+          @update:page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        >
+          <template #prefix>共 {{ pagination.itemCount }} 条</template>
+        </n-pagination>
+      </div>
     </n-card>
 
     <n-modal v-model:show="detailVisible" preset="card" title="缓存详情" style="width: 800px">
@@ -78,7 +98,8 @@ const keys = ref<string[]>([])
 const keysLoading = ref(false)
 const searchPattern = ref('*')
 
-const pagination = reactive({ page: 1, pageSize: 10, itemCount: 0 })
+const pagination = reactive({ page: 1, pageSize: 10, itemCount: 0, pageSizes: [10, 20, 50, 100] })
+const chartGridCols = '1 s:1 m:2 l:2'
 
 const detailVisible = ref(false)
 const cacheDetail = ref<{ key: string; type: string; value: string; ttl: number }>({
@@ -196,11 +217,30 @@ function updateCharts(stats: { usedMemory: number; maxMemory: number; ops: numbe
 async function loadKeys() {
   keysLoading.value = true
   try {
-    const res = await cacheApi.keys(searchPattern.value) || []
-    keys.value = res
-    pagination.itemCount = res.length
-    pagination.page = 1
+    const res = await cacheApi.keys({
+      pattern: searchPattern.value || '*',
+      page: pagination.page,
+      pageSize: pagination.pageSize
+    })
+    keys.value = res?.list || []
+    pagination.itemCount = Number(res?.total || 0)
   } finally { keysLoading.value = false }
+}
+
+function handleSearch() {
+  pagination.page = 1
+  loadKeys()
+}
+
+function handlePageChange(page: number) {
+  pagination.page = page
+  loadKeys()
+}
+
+function handlePageSizeChange(pageSize: number) {
+  pagination.pageSize = pageSize
+  pagination.page = 1
+  loadKeys()
 }
 
 async function handleView(key: string) {
@@ -220,8 +260,10 @@ function handleDelete(key: string) {
     onPositiveClick: async () => {
       await cacheApi.delete(key)
       message.success('删除成功')
-      keys.value = keys.value.filter(k => k !== key)
-      pagination.itemCount = keys.value.length
+      if (keys.value.length === 1 && pagination.page > 1) {
+        pagination.page--
+      }
+      loadKeys()
     }
   })
 }
@@ -258,4 +300,30 @@ onUnmounted(() => {
 <style lang="scss" scoped>
 .stats-section { margin-bottom: 16px; }
 .chart-box { height: 260px; }
+.pagination {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@media (max-width: 768px) {
+  .search-form :deep(.n-form) {
+    width: 100%;
+  }
+
+  .search-form :deep(.n-form-item) {
+    width: 100%;
+  }
+
+  .search-form :deep(.n-input) {
+    width: 100% !important;
+  }
+
+  .pagination {
+    justify-content: flex-start;
+  }
+}
 </style>

@@ -155,8 +155,8 @@ export const cacheApi = {
   stats(): Promise<CacheStats> {
     return request({ url: '/monitor/cache/stats', method: 'get' })
   },
-  keys(pattern?: string): Promise<string[]> {
-    return request({ url: '/monitor/cache/keys', method: 'get', params: { pattern } })
+  keys(params: { pattern?: string; page: number; pageSize: number }): Promise<PageResult<string>> {
+    return request({ url: '/monitor/cache/keys', method: 'get', params })
   },
   delete(key: string): Promise<void> {
     return request({ url: '/monitor/cache', method: 'delete', params: { key } })
