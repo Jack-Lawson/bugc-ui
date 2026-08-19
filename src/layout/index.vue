@@ -978,6 +978,10 @@ const breadcrumbs = computed(() => {
       items.push({ path: '/system/dict', title: '字典管理' })
     } else if (route.path === '/system/config') {
       items.push({ path: '/system/config', title: '系统配置' })
+    } else if (route.path === '/system/image') {
+      items.push({ path: '/system/image', title: '图片管理' })
+    } else if (route.path === '/system/video') {
+      items.push({ path: '/system/video', title: '视频管理' })
     } else if (route.path === '/system/file') {
       items.push({ path: '/system/file', title: '文件列表' })
     } else if (route.path === '/system/file-config') {

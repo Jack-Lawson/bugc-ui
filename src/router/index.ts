@@ -101,6 +101,18 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '文件列表', icon: 'FolderOutline' }
       },
       {
+        path: 'system/image',
+        name: 'SystemImage',
+        component: () => import('@/views/system/image/index.vue'),
+        meta: { title: '图片管理', icon: 'ImageOutline' }
+      },
+      {
+        path: 'system/video',
+        name: 'SystemVideo',
+        component: () => import('@/views/system/video/index.vue'),
+        meta: { title: '视频管理', icon: 'VideocamOutline' }
+      },
+      {
         path: 'system/file-config',
         name: 'SystemFileConfig',
         component: () => import('@/views/system/file-config/index.vue'),

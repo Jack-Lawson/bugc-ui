@@ -1,74 +1,71 @@
 <template>
   <div class="page-container">
     <div class="file-layout">
-      <!-- 左侧分组卡片 -->
-      <n-card class="group-card" size="small">
-        <template #header>
-          <div class="card-header">文件分组</div>
-        </template>
-
-        <!-- 文件类型标签 -->
-        <div class="type-tabs">
-          <div
-              v-for="tab in typeTabs"
-              :key="tab.value"
-              :class="['type-tab', { active: activeType === tab.value }]"
-              :style="activeType === tab.value ? activeTabStyle : {}"
-              @click="activeType = tab.value; loadFiles()"
-          >
-            {{ tab.label }}
-          </div>
-        </div>
-
-        <div class="group-list-wrapper">
-          <div class="group-list">
-            <div
-                :class="['group-item', { active: activeGroupId === -1 }]"
-                @click="selectGroup(-1)"
-            >
-              <n-icon><FolderOutline/></n-icon>
-              <span class="group-name">全部</span>
-            </div>
-            <div
-                :class="['group-item', { active: activeGroupId === null }]"
-                @click="selectGroup(null)"
-            >
-              <n-icon><FolderOutline/></n-icon>
-              <span class="group-name">未分组</span>
-              <span v-if="ungroupedCount > 0" class="group-count">{{ ungroupedCount }}</span>
-            </div>
-            <div
-                v-for="group in groups"
-                :key="group.id"
-                :class="['group-item', { active: activeGroupId === group.id }]"
-                @click="selectGroup(group.id!)"
-                @contextmenu.prevent="showGroupMenu($event, group)"
-            >
-              <n-icon><FolderOutline/></n-icon>
-              <span class="group-name">{{ group.name }}</span>
-              <span v-if="group.fileCount && group.fileCount > 0" class="group-count">{{ group.fileCount }}</span>
-              <n-dropdown
-                  trigger="click"
-                  :options="groupMenuOptions"
-                  @select="(key: string) => handleGroupAction(key, group)"
-              >
-                <n-icon class="group-more" @click.stop><EllipsisHorizontalOutline/></n-icon>
-              </n-dropdown>
-            </div>
-          </div>
-        </div>
-
-        <template #footer>
-          <n-button block dashed size="small" @click="showGroupModal = true">
-            <template #icon><n-icon><AddOutline/></n-icon></template>
-            新增分组
-          </n-button>
-        </template>
-      </n-card>
-
-      <!-- 右侧主内容卡片 -->
       <n-card class="file-list-card" size="small">
         <template #header>
+          <div class="group-strip">
+            <div class="group-strip-title">{{ categoryTitle }}分组</div>
+            <div class="group-list-wrapper">
+              <div class="group-list">
+                <div
+                    :class="['group-item', { active: activeGroupId === -1 }]"
+                    @click="selectGroup(-1)"
+                >
+                  <div class="group-card-top">
+                    <div class="group-icon">
+                      <n-icon><component :is="categoryIcon"/></n-icon>
+                    </div>
+                    <span class="group-count">{{ categoryAllCount }}</span>
+                  </div>
+                  <span class="group-name">全部</span>
+                </div>
+                <div
+                    :class="['group-item', { active: activeGroupId === null }]"
+                    @click="selectGroup(null)"
+                >
+                  <div class="group-card-top">
+                    <div class="group-icon">
+                      <n-icon><FolderOutline/></n-icon>
+                    </div>
+                    <span class="group-count">{{ ungroupedCount }}</span>
+                  </div>
+                  <span class="group-name">未分组</span>
+                </div>
+                <div
+                    v-for="group in groups"
+                    :key="group.id"
+                    :class="['group-item', { active: activeGroupId === group.id }]"
+                    @click="selectGroup(group.id!)"
+                    @contextmenu.prevent="showGroupMenu($event, group)"
+                >
+                  <div class="group-card-top">
+                    <div class="group-icon">
+                      <n-icon><component :is="categoryIcon"/></n-icon>
+                    </div>
+                    <div class="group-card-actions" @click.stop>
+                      <span class="group-count">{{ group.fileCount || 0 }}</span>
+                      <n-dropdown
+                          trigger="click"
+                          :options="groupMenuOptions"
+                          @select="(key: string) => handleGroupAction(key, group)"
+                      >
+                        <n-icon class="group-more"><EllipsisHorizontalOutline/></n-icon>
+                      </n-dropdown>
+                    </div>
+                  </div>
+                  <span class="group-name">{{ group.name }}</span>
+                </div>
+                <button class="group-item group-add" type="button" @click="showGroupModal = true">
+                  <div class="group-card-top">
+                    <div class="group-icon">
+                      <n-icon><AddOutline/></n-icon>
+                    </div>
+                  </div>
+                  <span class="group-name">新增分组</span>
+                </button>
+              </div>
+            </div>
+          </div>
           <div class="toolbar">
             <div class="toolbar-left">
               <n-upload
@@ -76,6 +73,7 @@
                   :custom-request="handleUpload"
                   :show-file-list="false"
                   :multiple="true"
+                  :accept="uploadAccept"
               >
                 <n-button type="primary">
                   <template #icon><n-icon><CloudUploadOutline/></n-icon></template>
@@ -177,6 +175,8 @@
                     <a @click.stop="handleDownload(file)">下载</a>
                     <span v-if="isPreviewable(file)">|</span>
                     <a v-if="isPreviewable(file)" @click.stop="handlePreview(file)">查看</a>
+                    <span>|</span>
+                    <a class="danger-action" @click.stop="handleDelete(file)">删除</a>
                   </div>
                 </div>
               </div>
@@ -322,7 +322,8 @@
 </template>
 
 <script setup lang="ts">
-import {ref, reactive, computed, onMounted, h} from 'vue'
+import {ref, reactive, computed, onMounted, watch, h} from 'vue'
+import {useRoute} from 'vue-router'
 import {useMessage, useDialog, type UploadCustomRequestOptions} from 'naive-ui'
 import {
   CloudUploadOutline, SearchOutline, ListOutline, GridOutline, FolderOutline,
@@ -331,33 +332,54 @@ import {
 } from '@vicons/ionicons5'
 import {fileApi, fileGroupApi, type SysFile, type SysFileGroup} from '@/api/system'
 import {useUserStore} from '@/stores/user'
-import {useThemeStore} from '@/stores/theme'
 
 const message = useMessage()
 const dialog = useDialog()
+const route = useRoute()
 const userStore = useUserStore()
-const themeStore = useThemeStore()
 const hasPermission = (permission: string) => userStore.hasPermission(permission)
 
-// 选中标签的动态样式
-const activeTabStyle = computed(() => ({
-  color: '#fff',
-  fontWeight: '500',
-  background: themeStore.primaryColor,
-  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.15)'
-}))
+type FileCategory = 'image' | 'video' | 'file'
+
+const props = defineProps<{
+  category?: FileCategory
+}>()
 
 // 文件类型标签
-const typeTabs = [
-  {label: '图片', value: 'image'},
-  {label: '视频', value: 'video'},
-  {label: '文件', value: 'other'}
-]
-const activeType = ref('image')
+const routeCategoryMap: Record<string, FileCategory> = {
+  '/system/image': 'image',
+  '/system/video': 'video',
+  '/system/file': 'file'
+}
+
+function resolveCategory(): FileCategory {
+  return props.category || routeCategoryMap[route.path] || 'file'
+}
+
+const activeType = ref<FileCategory>(resolveCategory())
+
+const categoryTitle = computed(() => {
+  if (activeType.value === 'image') return '图片'
+  if (activeType.value === 'video') return '视频'
+  return '文件'
+})
+
+const categoryIcon = computed(() => {
+  if (activeType.value === 'image') return ImageOutline
+  if (activeType.value === 'video') return VideocamOutline
+  return DocumentOutline
+})
+
+const uploadAccept = computed(() => {
+  if (activeType.value === 'image') return 'image/*'
+  if (activeType.value === 'video') return 'video/*'
+  return undefined
+})
 
 // 分组相关
 const groups = ref<SysFileGroup[]>([])
 const ungroupedCount = ref(0)
+const categoryAllCount = ref(0)
 const activeGroupId = ref<number | null>(-1) // -1 表示全部
 
 // 视图模式
@@ -435,9 +457,10 @@ const isIndeterminate = computed(() => selectedIds.value.length > 0 && selectedI
 // 加载分组
 async function loadGroups() {
   try {
-    const res = await fileGroupApi.list()
+    const res = await fileGroupApi.list({groupScope: activeType.value})
     groups.value = res.groups
     ungroupedCount.value = res.ungroupedCount
+    categoryAllCount.value = Number(res.allCount || 0)
   } catch (error) {
     // 错误已在拦截器处理
   }
@@ -452,11 +475,14 @@ async function loadFiles() {
       page: pagination.page,
       pageSize: pagination.pageSize,
       groupId: activeGroupId.value === -1 ? undefined : activeGroupId.value,
-      fileCategory: activeType.value,
+      fileScope: activeType.value,
       originalName: searchName.value || undefined
     })
     files.value = res.list
     pagination.itemCount = Number(res.total)
+    if (activeGroupId.value === -1) {
+      categoryAllCount.value = pagination.itemCount
+    }
   } catch (error) {
     // 错误已在拦截器处理
   } finally {
@@ -536,10 +562,10 @@ async function handleSaveGroup() {
   }
   try {
     if (editingGroup.value) {
-      await fileGroupApi.update({id: editingGroup.value.id, name: groupForm.name})
+      await fileGroupApi.update({id: editingGroup.value.id, name: groupForm.name, groupScope: activeType.value})
       message.success('更新成功')
     } else {
-      await fileGroupApi.create({name: groupForm.name})
+      await fileGroupApi.create({name: groupForm.name, groupScope: activeType.value})
       message.success('创建成功')
     }
     showGroupModal.value = false
@@ -562,8 +588,13 @@ function getUploadGroupId(): number | null {
 // 上传
 async function handleUpload(options: UploadCustomRequestOptions) {
   const {file, onFinish, onError} = options
+  const rawFile = file.file as File
+  if (!validateUploadFile(rawFile)) {
+    onError()
+    return
+  }
   try {
-    await fileApi.upload(file.file as File, undefined, getUploadGroupId())
+    await fileApi.upload(rawFile, undefined, getUploadGroupId(), activeType.value)
     message.success('上传成功')
     onFinish()
     loadFiles()
@@ -593,8 +624,11 @@ async function handleDrop(e: DragEvent) {
   if (!droppedFiles || droppedFiles.length === 0) return
   const uploadGroupId = getUploadGroupId()
   for (let i = 0; i < droppedFiles.length; i++) {
+    if (!validateUploadFile(droppedFiles[i])) {
+      continue
+    }
     try {
-      await fileApi.upload(droppedFiles[i], undefined, uploadGroupId)
+      await fileApi.upload(droppedFiles[i], undefined, uploadGroupId, activeType.value)
       message.success(`${droppedFiles[i].name} 上传成功`)
     } catch (error) {
       message.error(`${droppedFiles[i].name} 上传失败`)
@@ -602,6 +636,23 @@ async function handleDrop(e: DragEvent) {
   }
   loadFiles()
   loadGroups()
+}
+
+function validateUploadFile(file: File): boolean {
+  const fileType = file.type || ''
+  if (activeType.value === 'image' && !fileType.startsWith('image/')) {
+    message.warning('图片库只能上传图片文件')
+    return false
+  }
+  if (activeType.value === 'video' && !fileType.startsWith('video/')) {
+    message.warning('视频库只能上传视频文件')
+    return false
+  }
+  if (activeType.value === 'file' && (fileType.startsWith('image/') || fileType.startsWith('video/'))) {
+    message.warning('文件库不能上传图片或视频文件')
+    return false
+  }
+  return true
 }
 
 // 预览
@@ -736,86 +787,166 @@ onMounted(() => {
   loadGroups()
   loadFiles()
 })
+
+watch(
+  () => [route.path, props.category] as const,
+  () => {
+    const nextCategory = resolveCategory()
+    if (activeType.value !== nextCategory) {
+      activeType.value = nextCategory
+      activeGroupId.value = -1
+      pagination.page = 1
+      loadGroups()
+      loadFiles()
+    }
+  }
+)
 </script>
 
 <style scoped>
 .file-layout {
-  display: flex;
-  gap: 12px;
   height: 100%;
 }
 
-.group-card {
-  width: 240px;
-  flex-shrink: 0;
+.group-strip {
   display: flex;
-  flex-direction: column;
-  height: calc(100vh - 160px);
-}
-
-.group-card :deep(.n-card__content) {
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.card-header {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.type-tabs {
-  display: flex;
-  padding: 8px 12px;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
   border-bottom: 1px solid var(--n-border-color);
 }
 
-.type-tab {
-  padding: 4px 12px;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--n-text-color-3);
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.type-tab:hover { color: var(--n-primary-color); background: var(--n-hover-color); }
-.type-tab.active {
-  /* 样式由内联 style 控制 */
-  border-radius: 4px;
+.group-strip-title {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--n-text-color);
 }
 
 .group-list-wrapper {
   flex: 1;
-  overflow-y: auto;
-  padding: 8px 0;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px;
+}
+
+.group-list {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  min-width: max-content;
 }
 
 .group-item {
   display: flex;
-  align-items: center;
-  padding: 8px 16px;
+  flex-direction: column;
+  align-items: stretch;
+  width: 108px;
+  min-height: 64px;
+  padding: 8px 10px;
   cursor: pointer;
-  gap: 8px;
+  gap: 6px;
+  position: relative;
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+  background: var(--n-color);
   color: var(--n-text-color);
-  transition: all 0.2s;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s, transform 0.2s;
 }
 
-.group-item:hover { background: var(--n-hover-color); }
-.group-item.active { background: var(--n-primary-color-hover); color: var(--n-primary-color); }
+.group-item:hover {
+  border-color: var(--n-primary-color);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
 
-.group-name { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.group-count { font-size: 12px; color: var(--n-text-color-3); }
-.group-more { opacity: 0; transition: opacity 0.2s; }
-.group-item:hover .group-more { opacity: 1; }
+.group-item.active {
+  border-color: var(--n-primary-color);
+  background: var(--n-primary-color-hover);
+}
+
+.group-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.group-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.group-icon {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--n-action-color);
+  color: var(--n-text-color-3);
+  font-size: 15px;
+}
+
+.group-item.active .group-icon {
+  background: var(--n-primary-color);
+  color: #fff;
+}
+
+.group-name {
+  display: block;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--n-hover-color);
+  color: var(--n-text-color-3);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.group-item.active .group-count {
+  background: #fff;
+  color: var(--n-primary-color);
+}
+
+.group-more {
+  width: 18px;
+  height: 18px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.group-item:hover .group-more,
+.group-item.active .group-more { opacity: 1; }
+
+.group-add {
+  border-style: dashed;
+  color: var(--n-primary-color);
+}
 
 .file-list-card {
-  flex: 1;
-  min-width: 0;
   display: flex;
   flex-direction: column;
+  min-height: calc(100vh - 160px);
+}
+
+.file-list-card :deep(.n-card-header) {
+  display: block;
 }
 
 .file-list-card :deep(.n-card__content) {
@@ -884,6 +1015,7 @@ onMounted(() => {
 .file-name { font-size: 13px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-actions { display: flex; gap: 4px; font-size: 12px; }
 .file-actions a { color: var(--n-primary-color); cursor: pointer; }
+.file-actions a.danger-action { color: var(--n-error-color); }
 .file-actions span { color: var(--n-text-color-3); }
 
 /* 列表视图 */

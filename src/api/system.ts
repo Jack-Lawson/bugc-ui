@@ -296,6 +296,7 @@ export interface SysFileGroup {
   id?: number
   name: string
   sort?: number
+  groupScope?: string
   fileCount?: number
   createBy?: string
   createTime?: string
@@ -304,11 +305,12 @@ export interface SysFileGroup {
 export interface FileGroupListResult {
   groups: SysFileGroup[]
   ungroupedCount: number
+  allCount?: number
 }
 
 export const fileGroupApi = {
-  list(): Promise<FileGroupListResult> {
-    return request({ url: '/sys/file-group/list', method: 'get' })
+  list(params?: { groupScope?: string }): Promise<FileGroupListResult> {
+    return request({ url: '/sys/file-group/list', method: 'get', params })
   },
 
   detail(id: number): Promise<SysFileGroup> {
@@ -337,6 +339,7 @@ export interface SysFile {
   url: string
   fileSize: number
   fileType: string
+  fileScope?: string
   fileSuffix: string
   storageType: string
   bucketName?: string
@@ -355,7 +358,7 @@ export const fileApi = {
     page: number
     pageSize: number
     groupId?: number | null
-    fileCategory?: string
+    fileScope?: string
     originalName?: string 
   }): Promise<PageResult<SysFile>> {
     return request({ url: '/sys/file/page-by-group', method: 'get', params })
@@ -365,7 +368,7 @@ export const fileApi = {
     return request({ url: `/sys/file/${id}`, method: 'get' })
   },
   
-  upload(file: File, path?: string, groupId?: number | null): Promise<SysFile> {
+  upload(file: File, path?: string, groupId?: number | null, fileScope?: string): Promise<SysFile> {
     const formData = new FormData()
     formData.append('file', file)
     if (path) {
@@ -373,6 +376,9 @@ export const fileApi = {
     }
     if (groupId !== undefined && groupId !== null && groupId > 0) {
       formData.append('groupId', groupId.toString())
+    }
+    if (fileScope) {
+      formData.append('fileScope', fileScope)
     }
     return request({
       url: '/sys/file/upload',
