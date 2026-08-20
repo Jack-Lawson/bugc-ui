@@ -1,419 +1,262 @@
 <template>
-  <div class="page-container">
-    <!-- 欢迎区域 -->
-    <div class="welcome-section">
-      <!-- 左侧欢迎信息 -->
-      <div class="welcome-info">
-        <div class="welcome-header">
-          <n-avatar round :size="56" :src="userStore.avatar || undefined">
-            {{ userStore.nickname?.charAt(0) || 'U' }}
-          </n-avatar>
-          <div class="welcome-text">
-            <h1 class="welcome-title">
-              {{ getGreeting() }}，{{ userStore.nickname }} 👋
-            </h1>
-            <p class="welcome-desc">
-              这是您的管理控制台，您可以在这里管理系统的各项功能
-            </p>
-          </div>
-        </div>
-        <div class="welcome-time">
-          <div class="time-display">{{ currentTime }}</div>
-          <div class="date-display">{{ currentDate }}</div>
+  <div class="page-container dashboard-page">
+    <section class="dashboard-header">
+      <div class="dashboard-title-block">
+        <div class="dashboard-kicker">控制台</div>
+        <h1 class="dashboard-title">功能导航台</h1>
+        <p class="dashboard-subtitle">按系统能力快速进入管理、监控、文件、消息和工具模块。</p>
+      </div>
+      <div class="operator-panel">
+        <n-avatar round :size="42" :src="userStore.avatar || undefined">
+          {{ userInitial }}
+        </n-avatar>
+        <div class="operator-meta">
+          <strong>{{ userStore.nickname || '管理员' }}</strong>
+          <span>{{ currentDate }}</span>
         </div>
       </div>
-      <!-- 右侧轮播Banner -->
-      <div class="welcome-banner">
-        <n-carousel autoplay :interval="5000" dot-type="line" :show-arrow="true" class="banner-carousel">
-          <div v-for="(banner, index) in banners" :key="index" class="banner-item"
-               :style="{ background: banner.bgColor }">
-            <div class="banner-content">
-              <div class="banner-text">
-                <h3 class="banner-title">{{ banner.title }}</h3>
-                <p class="banner-subtitle">{{ banner.subtitle }}</p>
-              </div>
-              <div class="banner-icon">
-                <n-icon :size="64" :color="banner.iconColor">
-                  <component :is="banner.icon"/>
-                </n-icon>
-              </div>
-            </div>
-          </div>
-        </n-carousel>
-      </div>
-    </div>
+    </section>
 
-    <!-- 统计卡片 -->
-    <div class="stat-cards">
-      <n-card v-for="stat in stats" :key="stat.title" class="stat-card">
-        <div class="stat-content">
-          <div class="stat-icon" :style="{ background: stat.bgColor }">
-            <n-icon size="24" :color="stat.color">
-              <component :is="stat.icon"/>
+    <section v-if="featuredModules.length" class="quick-section">
+      <div class="section-heading">
+        <div>
+          <h2>常用操作</h2>
+          <span>优先进入高频维护页面</span>
+        </div>
+      </div>
+      <div class="featured-grid">
+        <button
+          v-for="module in featuredModules"
+          :key="module.path"
+          class="featured-card"
+          type="button"
+          @click="go(module.path)"
+        >
+          <span class="module-icon module-icon--large" :style="{ color: module.color, background: module.bgColor }">
+            <n-icon size="26">
+              <component :is="module.icon" />
             </n-icon>
+          </span>
+          <span class="featured-card__body">
+            <strong>{{ module.name }}</strong>
+            <span>{{ module.description }}</span>
+          </span>
+          <n-icon class="featured-card__arrow" size="18">
+            <ChevronForwardOutline />
+          </n-icon>
+        </button>
+      </div>
+    </section>
+
+    <section class="module-board">
+      <div
+        v-for="group in visibleGroups"
+        :key="group.name"
+        class="module-section"
+      >
+        <div class="section-heading">
+          <div>
+            <h2>{{ group.name }}</h2>
+            <span>{{ group.description }}</span>
           </div>
-          <div class="stat-info">
-            <n-skeleton v-if="loading" :width="60" :height="28"/>
-            <div v-else class="stat-value">{{ stat.value }}</div>
-            <div class="stat-title">{{ stat.title }}</div>
-          </div>
+          <span class="section-count">{{ group.items.length }} 项</span>
         </div>
-      </n-card>
-    </div>
-
-    <!-- 中间区域：快捷入口 + 更新日志 -->
-    <n-grid :x-gap="20" :cols="2" class="middle-section">
-      <!-- 快捷入口 -->
-      <n-gi>
-        <n-card title="快捷入口" class="shortcuts-card">
-          <div class="shortcuts-grid">
-            <div
-                v-for="shortcut in shortcuts"
-                :key="shortcut.path"
-                class="shortcut-item"
-                @click="router.push(shortcut.path)"
-            >
-              <div class="shortcut-icon" :style="{ background: shortcut.bgColor }">
-                <n-icon size="24" :color="shortcut.color">
-                  <component :is="shortcut.icon"/>
-                </n-icon>
-              </div>
-              <div class="shortcut-name">{{ shortcut.name }}</div>
-            </div>
-          </div>
-        </n-card>
-      </n-gi>
-
-      <!-- 更新日志 -->
-      <n-gi>
-        <n-card title="更新日志" class="changelog-card">
-          <n-timeline>
-            <n-timeline-item
-                v-for="log in changelog"
-                :key="log.version"
-                :type="log.type"
-                :title="log.version"
-                :time="log.date"
-            >
-              <ul class="changelog-list">
-                <li v-for="(item, idx) in log.changes" :key="idx">{{ item }}</li>
-              </ul>
-            </n-timeline-item>
-          </n-timeline>
-        </n-card>
-      </n-gi>
-    </n-grid>
+        <div class="module-grid">
+          <button
+            v-for="module in group.items"
+            :key="module.path"
+            class="module-card"
+            :class="{ 'module-card--primary': module.primary }"
+            type="button"
+            @click="go(module.path)"
+          >
+            <span class="module-icon" :style="{ color: module.color, background: module.bgColor }">
+              <n-icon size="22">
+                <component :is="module.icon" />
+              </n-icon>
+            </span>
+            <span class="module-card__content">
+              <strong>{{ module.name }}</strong>
+              <span>{{ module.description }}</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import {ref, onMounted, onUnmounted, markRaw} from 'vue'
-import {useRouter} from 'vue-router'
+import { computed, markRaw, onMounted, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import {
-  PersonOutline,
-  PeopleOutline,
-  MenuOutline,
-  ShieldCheckmarkOutline,
-  LogoGithub,
-  LogoGitlab,
-  LogoWechat,
-  Globe,
-  Mail,
-  Star,
-  Refresh,
-  DocumentText,
-  SettingsOutline,
-  TimerOutline,
-  ServerOutline,
-  RocketOutline,
-  SparklesOutline,
-  CodeSlashOutline,
+  BookOutline,
+  ChatbubbleOutline,
+  ChevronForwardOutline,
   CloudOutline,
-  ChatbubbleOutline
+  CodeSlashOutline,
+  DesktopOutline,
+  FolderOutline,
+  ImageOutline,
+  MenuOutline,
+  NotificationsOutline,
+  PeopleCircleOutline,
+  PeopleOutline,
+  PersonOutline,
+  PieChartOutline,
+  ServerOutline,
+  SettingsOutline,
+  SpeedometerOutline,
+  StatsChartOutline,
+  TerminalOutline,
+  TimerOutline,
+  VideocamOutline
 } from '@vicons/ionicons5'
-import {useUserStore} from '@/stores/user'
-import {dashboardApi} from '@/api/system'
-import { siteDefaults } from '@/config/app'
+import { useUserStore } from '@/stores/user'
+import type { MenuInfo } from '@/api/auth'
+
+interface DashboardModule {
+  name: string
+  path: string
+  description: string
+  icon: any
+  color: string
+  bgColor: string
+  primary?: boolean
+}
+
+interface ModuleGroup {
+  name: string
+  description: string
+  items: DashboardModule[]
+}
 
 const router = useRouter()
 const userStore = useUserStore()
-
-const currentTime = ref('')
 const currentDate = ref('')
-const loading = ref(true)
 
-// 获取问候语
-function getGreeting() {
-  const hour = new Date().getHours()
-  if (hour < 6) return '夜深了'
-  if (hour < 9) return '早上好'
-  if (hour < 12) return '上午好'
-  if (hour < 14) return '中午好'
-  if (hour < 18) return '下午好'
-  if (hour < 22) return '晚上好'
-  return '夜深了'
-}
+const userInitial = computed(() => (userStore.nickname || userStore.user?.username || 'U').charAt(0).toUpperCase())
 
-// 轮播Banner数据
-const banners = [
+const moduleGroups: ModuleGroup[] = [
   {
-    title: siteDefaults.name,
-    subtitle: siteDefaults.description,
-    bgColor: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    icon: markRaw(RocketOutline),
-    iconColor: 'rgba(255,255,255,0.3)'
-  },
-  {
-    title: '技术栈',
-    subtitle: 'Spring Boot 3 + Vue 3',
-    bgColor: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    icon: markRaw(CodeSlashOutline),
-    iconColor: 'rgba(255,255,255,0.3)'
-  },
-  {
-    title: '开源免费',
-    subtitle: '持续更新 · 文档完善',
-    bgColor: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    icon: markRaw(SparklesOutline),
-    iconColor: 'rgba(255,255,255,0.3)'
-  },
-  {
-    title: '云端部署',
-    subtitle: '支持 Docker 一键部署',
-    bgColor: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-    icon: markRaw(CloudOutline),
-    iconColor: 'rgba(255,255,255,0.3)'
-  }
-]
-
-// 统计数据
-const stats = ref([
-  {
-    title: '用户总数',
-    value: 0,
-    icon: markRaw(PersonOutline),
-    color: '#111827',
-    bgColor: '#F3F4F6'
-  },
-  {
-    title: '角色数量',
-    value: 0,
-    icon: markRaw(PeopleOutline),
-    color: '#059669',
-    bgColor: '#D1FAE5'
-  },
-  {
-    title: '菜单数量',
-    value: 0,
-    icon: markRaw(MenuOutline),
-    color: '#2563EB',
-    bgColor: '#DBEAFE'
-  },
-  {
-    title: '权限数量',
-    value: 0,
-    icon: markRaw(ShieldCheckmarkOutline),
-    color: '#D97706',
-    bgColor: '#FEF3C7'
-  }
-])
-
-// 快捷入口
-const shortcuts = [
-  {
-    name: '用户管理',
-    path: '/system/user',
-    icon: markRaw(PersonOutline),
-    color: '#111827',
-    bgColor: '#F3F4F6'
-  },
-  {
-    name: '角色管理',
-    path: '/system/role',
-    icon: markRaw(PeopleOutline),
-    color: '#059669',
-    bgColor: '#D1FAE5'
-  },
-  {
-    name: '菜单管理',
-    path: '/system/menu',
-    icon: markRaw(MenuOutline),
-    color: '#2563EB',
-    bgColor: '#DBEAFE'
-  },
-  {
-    name: '系统配置',
-    path: '/system/config',
-    icon: markRaw(SettingsOutline),
-    color: '#7C3AED',
-    bgColor: '#EDE9FE'
-  },
-  {
-    name: '定时任务',
-    path: '/monitor/job',
-    icon: markRaw(TimerOutline),
-    color: '#DC2626',
-    bgColor: '#FEE2E2'
-  },
-  {
-    name: '服务监控',
-    path: '/monitor/server',
-    icon: markRaw(ServerOutline),
-    color: '#0891B2',
-    bgColor: '#CFFAFE'
-  }
-]
-
-// 更新日志
-const changelog = [
-  {
-    version: 'v1.0.7',
-    date: '2026-03-01',
-    type: 'success' as const,
-    changes: [
-      '代码生成：新增表单布局配置，支持「一行两列」和「从上到下」两种布局',
-      '代码生成：编辑配置弹窗新增「布局配置」标签页',
-      '代码生成：修复 LocalDate/LocalDateTime 字段 JSON 解析错误',
-      '代码生成：日期时间字段提交格式与 Jackson 配置（yyyy-MM-dd HH:mm:ss）兼容',
-      '代码生成：编辑时日期字符串正确转换为时间戳供日期选择器使用'
+    name: '系统管理',
+    description: '账号、角色、菜单和基础配置',
+    items: [
+      createModule('用户管理', '/system/user', '维护后台用户、角色关系和账号状态', PersonOutline, '#2563eb', '#dbeafe'),
+      createModule('角色管理', '/system/role', '配置角色权限和授权范围', PeopleOutline, '#059669', '#d1fae5'),
+      createModule('菜单管理', '/system/menu', '维护路由菜单和权限标识', MenuOutline, '#7c3aed', '#ede9fe'),
+      createModule('字典管理', '/system/dict', '管理系统字典和枚举数据', BookOutline, '#b45309', '#fef3c7'),
+      createModule('系统配置', '/system/config', '调整站点、登录和第三方配置', SettingsOutline, '#0f766e', '#ccfbf1')
     ]
   },
   {
-    version: 'v1.0.6',
-    date: '2026-03-01',
-    type: 'success' as const,
-    changes: [
-      '系统通知：移除短信渠道，Webhook 拆分为飞书/钉钉/企业微信分别选择',
-      '钉钉推送：支持加签密钥（SEC），确保安全校验',
-      'bugc-push 模块重构：支持文本和图片，统一 Webhook 发送逻辑',
-      '新增通知记录：可查看各渠道推送触达情况及成功/失败状态',
-      '推送失败支持重试：通知记录中失败渠道可一键重试'
+    name: '文件管理',
+    description: '文件资产、媒体资源和存储配置',
+    items: [
+      createModule('文件列表', '/system/file', '上传、预览、移动和管理文件', FolderOutline, '#2563eb', '#dbeafe', true),
+      createModule('图片管理', '/system/image', '筛选和管理图片资源', ImageOutline, '#db2777', '#fce7f3'),
+      createModule('视频管理', '/system/video', '维护视频文件和预览内容', VideocamOutline, '#9333ea', '#f3e8ff'),
+      createModule('文件配置', '/system/file-config', '配置本地和对象存储策略', CloudOutline, '#0891b2', '#cffafe')
     ]
   },
   {
-    version: 'v1.0.5',
-    date: '2026-02-28',
-    type: 'success' as const,
-    changes: [
-      '整合 Druid 数据库连接池监控平台',
-      '定时任务新增 Cron 表达式常用预设选择',
-      '定时任务新增调度日志查看功能',
-      '定时任务新增调度统计图表（执行数、成功/失败比例）',
-      '缓存监控页面新增 ECharts 统计图（内存、QPS、命中率、连接数）',
-      '修复通知类型表单校验问题',
-      '优化统计卡片样式（透明背景）'
+    name: '系统监控',
+    description: '服务状态、任务、缓存和运行指标',
+    items: [
+      createModule('服务监控', '/monitor/server', '查看主机状态、资源使用和趋势', DesktopOutline, '#2563eb', '#dbeafe', true),
+      createModule('服务器管理', '/monitor/server-manager', '维护服务器资产和连接状态', ServerOutline, '#0f766e', '#ccfbf1', true),
+      createModule('缓存监控', '/monitor/cache', '查看 Redis 内存、连接和命中情况', SpeedometerOutline, '#d97706', '#fef3c7'),
+      createModule('定时任务', '/monitor/job', '管理调度任务和执行日志', TimerOutline, '#dc2626', '#fee2e2'),
+      createModule('SQL监控', '/monitor/druid', '查看数据库连接池和 SQL 指标', PieChartOutline, '#4f46e5', '#e0e7ff'),
+      createModule('在线用户', '/monitor/online', '查看当前在线会话和登录状态', PeopleCircleOutline, '#16a34a', '#dcfce7')
     ]
   },
   {
-    version: 'v1.0.4',
-    date: '2026-02-24',
-    type: 'success' as const,
-    changes: [
-      '新增用户批量导入导出功能（EasyExcel）',
-      '导入模板支持角色和岗位字段',
-      '新增用户多选导出功能',
-      '新增用户批量删除功能',
-      '优化文件下载认证处理'
+    name: '消息中心',
+    description: '通知发布和实时沟通',
+    items: [
+      createModule('系统通知', '/message/notice', '发布通知并跟踪触达结果', NotificationsOutline, '#ea580c', '#ffedd5'),
+      createModule('即时聊天', '/message/chat', '处理用户私聊和群组消息', ChatbubbleOutline, '#0284c7', '#e0f2fe')
     ]
   },
   {
-    version: 'v1.0.3',
-    date: '2026-02-24',
-    type: 'success' as const,
-    changes: [
-      '新增前端反调试控制（安全配置开关）',
-      '优化系统配置页面按钮布局',
-      '优化弹窗按钮主题色适配',
-      '新增多种主题颜色选择',
-      '修复操作日志耗时统计问题'
-    ]
-  },
-  {
-    version: 'v1.0.2',
-    date: '2026-02-13',
-    type: 'success' as const,
-    changes: [
-      '新增 RustFS 对象存储支持',
-      '新增腾讯云 COS 存储支持',
-      '优化存储配置页面布局，访问域名按存储类型分组',
-      '修复 Office 文档预览样式问题',
-      '修复 PDF 预览需要登录的问题',
-      '支持大文件上传（最大 500MB）',
-      '优化文件列表全选效果',
-      '文件管理新增拖拽上传提示'
-    ]
-  },
-  {
-    version: 'v1.0.1',
-    date: '2026-01-31',
-    type: 'success' as const,
-    changes: [
-      '新增暗黑主题模式，支持一键切换',
-      '优化首页布局，新增轮播 Banner',
-      '新增邮件配置及测试发送功能',
-      '新增接口加密功能（全局/部分加密）',
-      '新增 RSA 密钥自动生成功能',
-      '优化即时聊天页面暗黑模式适配'
-    ]
-  },
-  {
-    version: 'v1.0.0',
-    date: '2026-01-29',
-    type: 'info' as const,
-    changes: [
-      '新增文件存储策略工厂（本地/MinIO/OSS/COS）',
-      '新增推送服务策略工厂（极光/友盟/个推）',
-      '新增短信/支付服务策略工厂',
-      '优化登录页面（三种样式+滑块验证码）',
-      '完善系统配置分组管理'
-    ]
-  },
-  {
-    version: 'v0.9.0',
-    date: '2026-01-25',
-    type: 'info' as const,
-    changes: [
-      '新增即时通讯功能（WebSocket私聊/群聊）',
-      '完成字典管理和系统配置功能',
-      '实现部门和岗位管理',
-      '完成定时任务管理功能'
-    ]
-  },
-  {
-    version: 'v0.8.0',
-    date: '2026-01-20',
-    type: 'default' as const,
-    changes: [
-      '搭建项目基础框架',
-      '集成 Sa-Token 实现认证授权',
-      '完成基础权限管理（用户、角色、菜单）',
-      '实现登录日志和操作日志记录',
-      '添加系统监控功能'
+    name: '工具箱',
+    description: '开发辅助和扩展入口',
+    items: [
+      createModule('代码生成', '/tool/gen', '基于表结构生成后端和前端代码', CodeSlashOutline, '#475569', '#f1f5f9'),
+      createModule('个人服务', '/personal-service/manage', '维护自定义服务入口和内嵌页面', TerminalOutline, '#7c2d12', '#ffedd5'),
+      createModule('路由器管理', '/server/router', '进入网络设备管理面板', StatsChartOutline, '#0e7490', '#cffafe')
     ]
   }
 ]
 
-// 加载统计数据
-async function loadStats() {
-  try {
-    loading.value = true
-    const data = await dashboardApi.getStats()
-    stats.value[0].value = data.userCount
-    stats.value[1].value = data.roleCount
-    stats.value[2].value = data.menuCount
-    stats.value[3].value = data.permissionCount
-  } catch (error) {
-    console.error('加载统计数据失败', error)
-  } finally {
-    loading.value = false
+const allowedPaths = computed(() => {
+  const paths = collectMenuPaths(userStore.menus)
+  return paths.size > 0 ? paths : null
+})
+
+const visibleGroups = computed(() => moduleGroups
+  .map(group => ({
+    ...group,
+    items: group.items.filter(item => canShow(item.path))
+  }))
+  .filter(group => group.items.length > 0)
+)
+
+const featuredModules = computed(() => visibleGroups.value
+  .flatMap(group => group.items)
+  .filter(item => item.primary)
+  .slice(0, 4)
+)
+
+function createModule(
+  name: string,
+  path: string,
+  description: string,
+  icon: any,
+  color: string,
+  bgColor: string,
+  primary = false
+): DashboardModule {
+  return {
+    name,
+    path,
+    description,
+    icon: markRaw(icon),
+    color,
+    bgColor,
+    primary
   }
 }
 
-// 更新时间
-function updateTime() {
-  const now = new Date()
-  currentTime.value = now.toLocaleTimeString('zh-CN', {hour12: false})
-  currentDate.value = now.toLocaleDateString('zh-CN', {
+function canShow(path: string) {
+  return !allowedPaths.value || allowedPaths.value.has(path)
+}
+
+function collectMenuPaths(menus: MenuInfo[] = [], result = new Set<string>()) {
+  menus.forEach(menu => {
+    const path = normalizePath(menu.path)
+    if (path && menu.visible === 1 && menu.status === 1) {
+      result.add(path)
+    }
+    if (menu.children?.length) {
+      collectMenuPaths(menu.children, result)
+    }
+  })
+  return result
+}
+
+function normalizePath(path?: string) {
+  if (!path) return ''
+  return path.startsWith('/') ? path : `/${path}`
+}
+
+function go(path: string) {
+  router.push(path)
+}
+
+function updateDate() {
+  currentDate.value = new Date().toLocaleDateString('zh-CN', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -422,10 +265,10 @@ function updateTime() {
 }
 
 let timer: number
+
 onMounted(() => {
-  updateTime()
-  timer = window.setInterval(updateTime, 1000)
-  loadStats()
+  updateDate()
+  timer = window.setInterval(updateDate, 60 * 1000)
 })
 
 onUnmounted(() => {
@@ -434,419 +277,271 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
-// 欢迎区域
-.welcome-section {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-.welcome-info {
-  flex: 1;
+.dashboard-page {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 24px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-}
-
-.welcome-header {
-  display: flex;
-  align-items: center;
   gap: 16px;
+  min-width: 0;
 }
 
-.welcome-text {
-  flex: 1;
-}
-
-.welcome-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: #111827;
-  margin: 0 0 6px 0;
-}
-
-.welcome-desc {
-  font-size: 14px;
-  color: #6B7280;
-  margin: 0;
-}
-
-.welcome-time {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.time-display {
-  font-size: 36px;
-  font-weight: 700;
-  color: #111827;
-  font-variant-numeric: tabular-nums;
-}
-
-.date-display {
-  font-size: 14px;
-  color: #6B7280;
-}
-
-// 轮播Banner
-.welcome-banner {
-  width: 380px;
-  flex-shrink: 0;
-}
-
-.banner-carousel {
-  height: 100%;
-  border-radius: 12px;
-  overflow: hidden;
-
-  :deep(.n-carousel__slides) {
-    height: 100%;
-  }
-
-  :deep(.n-carousel__slide) {
-    height: 100%;
-  }
-
-  :deep(.n-carousel__dots) {
-    bottom: 12px;
-  }
-
-  :deep(.n-carousel__dot) {
-    background: rgba(255, 255, 255, 0.5);
-
-    &.n-carousel__dot--active {
-      background: #fff;
-    }
-  }
-
-  :deep(.n-carousel__arrow) {
-    background: rgba(255, 255, 255, 0.2);
-    color: #fff;
-    opacity: 0;
-    transition: opacity 0.2s ease, background 0.2s ease;
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.3);
-    }
-  }
-
-  &:hover {
-    :deep(.n-carousel__arrow) {
-      opacity: 1;
-    }
-  }
-}
-
-.banner-item {
-  height: 100%;
-  min-height: 140px;
-  padding: 24px;
+.dashboard-header {
   display: flex;
   align-items: center;
-}
-
-.banner-content {
-  display: flex;
   justify-content: space-between;
-  align-items: center;
-  width: 100%;
+  gap: 18px;
+  padding: 20px 22px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .08);
 }
 
-.banner-text {
-  flex: 1;
+.dashboard-title-block {
+  min-width: 0;
 }
 
-.banner-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #fff;
-  margin: 0 0 8px 0;
-}
-
-.banner-subtitle {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.85);
-  margin: 0;
-}
-
-.banner-icon {
-  opacity: 0.6;
-}
-
-.stat-cards {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-.stat-card {
-  :deep(.n-card__content) {
-    padding: 20px;
-  }
-}
-
-.stat-content {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.stat-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: #111827;
-  line-height: 1;
-}
-
-.stat-title {
-  font-size: 14px;
-  color: #6B7280;
-  margin-top: 4px;
-}
-
-.middle-section {
-  margin-bottom: 20px;
-}
-
-.shortcuts-card {
-  height: 100%;
-}
-
-.shortcuts-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-}
-
-.shortcut-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 16px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-
-  &:hover {
-    background: #F3F4F6;
-  }
-}
-
-.shortcut-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 8px;
-}
-
-.shortcut-name {
+.dashboard-kicker {
+  color: #2563eb;
   font-size: 13px;
-  color: #374151;
-  font-weight: 500;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
-.changelog-card {
-  height: 100%;
-
-  :deep(.n-card__content) {
-    max-height: 280px;
-    overflow-y: auto;
-  }
+.dashboard-title {
+  margin: 4px 0 6px;
+  color: #0f172a;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.25;
 }
 
-.changelog-list {
+.dashboard-subtitle {
   margin: 0;
-  padding-left: 16px;
-  font-size: 13px;
-  color: #6B7280;
-
-  li {
-    margin-bottom: 4px;
-
-    &:last-child {
-      margin-bottom: 0;
-    }
-  }
-}
-
-.bottom-section {
-  margin-bottom: 20px;
-}
-
-.system-card {
-  height: 100%;
-
-  :deep(.n-descriptions) {
-    --n-th-padding: 10px 12px;
-    --n-td-padding: 10px 12px;
-  }
-}
-
-.author-card {
-  height: 100%;
-}
-
-.author-content {
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
-}
-
-.author-avatar {
-  flex-shrink: 0;
-}
-
-.author-info {
-  flex: 1;
-}
-
-.author-name {
-  font-size: 18px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0 0 8px 0;
-}
-
-.author-desc {
+  color: #64748b;
   font-size: 14px;
-  color: #6B7280;
-  margin: 0 0 12px 0;
   line-height: 1.5;
 }
 
-.author-links {
-  margin-top: 8px;
-}
-
-.author-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: #f3f4f6;
-  border-radius: 6px;
-  font-size: 13px;
-  color: #374151;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.2s;
-
-  &:hover {
-    background: #e5e7eb;
-    color: #111827;
-  }
-}
-
-.wechat-info {
+.operator-panel {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  flex: 0 0 auto;
+  min-width: 220px;
+  padding: 10px 12px;
+  border: 1px solid #edf2f7;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.operator-meta {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.operator-meta strong {
+  overflow: hidden;
+  color: #0f172a;
   font-size: 14px;
-  color: #333;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.project-info {
-  margin-top: 4px;
+.operator-meta span {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
-.project-desc {
-  font-size: 13px;
-  color: #6B7280;
-  margin: 0 0 12px 0;
-  line-height: 1.6;
+.quick-section,
+.module-section {
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .08);
 }
 
-.project-stats {
-  display: flex;
-  gap: 24px;
-}
-
-.project-stat-item {
+.section-heading {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: #374151;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
-@media (max-width: 1200px) {
-  .welcome-section {
-    flex-direction: column;
+.section-heading h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.section-heading span {
+  display: block;
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.section-count {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569 !important;
+  font-weight: 600;
+}
+
+.featured-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.featured-card,
+.module-card {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.featured-card:hover,
+.module-card:hover {
+  transform: translateY(-1px);
+  border-color: #93c5fd;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, .08);
+}
+
+.featured-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 94px;
+  padding: 14px;
+}
+
+.featured-card__body,
+.module-card__content {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.featured-card__body {
+  flex: 1;
+}
+
+.featured-card__body strong,
+.module-card__content strong {
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.featured-card__body span,
+.module-card__content span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.featured-card__arrow {
+  flex: 0 0 auto;
+  color: #94a3b8;
+}
+
+.module-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.module-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-height: 86px;
+  padding: 13px;
+}
+
+.module-card--primary {
+  background: #f8fbff;
+  border-color: #bfdbfe;
+}
+
+.module-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 8px;
+}
+
+.module-icon--large {
+  width: 48px;
+  height: 48px;
+  flex-basis: 48px;
+}
+
+@media (max-width: 1280px) {
+  .featured-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .welcome-banner {
-    width: 100%;
-  }
-
-  .banner-item {
-    min-height: 120px;
-  }
-
-  .stat-cards {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .middle-section,
-  .bottom-section {
-    :deep(.n-grid) {
-      display: block;
-    }
-
-    :deep(.n-gi) {
-      margin-bottom: 20px;
-    }
+  .module-board {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 768px) {
-  .welcome-header {
+  .dashboard-header {
+    align-items: stretch;
     flex-direction: column;
-    text-align: center;
+    padding: 16px;
   }
 
-  .welcome-time {
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
+  .dashboard-title {
+    font-size: 22px;
   }
 
-  .stat-cards {
+  .operator-panel {
+    min-width: 0;
+  }
+
+  .featured-grid,
+  .module-grid {
     grid-template-columns: 1fr;
   }
 
-  .shortcuts-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .author-content {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-
-  .project-stats {
-    justify-content: center;
-    flex-wrap: wrap;
+  .featured-card,
+  .module-card {
+    min-height: 0;
   }
 }
-
 </style>

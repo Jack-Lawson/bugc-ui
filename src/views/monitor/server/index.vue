@@ -1,32 +1,5 @@
 <template>
   <div class="page-container server-monitor-page">
-    <n-card class="toolbar-card">
-      <div class="toolbar">
-        <div>
-          <div class="page-title">服务监控</div>
-          <div class="page-subtitle">定时任务采集，Redis 实时缓存，数据库保存固定档案</div>
-        </div>
-        <div class="toolbar-actions">
-          <n-button secondary @click="showTargetDialog = true">
-            <template #icon><n-icon><ServerOutline /></n-icon></template>
-            选择目标
-          </n-button>
-          <n-button @click="loadTargets">
-            <template #icon><n-icon><RefreshOutline /></n-icon></template>
-            刷新列表
-          </n-button>
-          <n-button type="primary" :loading="profileRefreshing" @click="refreshProfile">
-            <template #icon><n-icon><SyncOutline /></n-icon></template>
-            刷新档案
-          </n-button>
-          <n-button type="primary" secondary @click="openAddMonitor">
-            <template #icon><n-icon><AddCircleOutline /></n-icon></template>
-            添加监控
-          </n-button>
-        </div>
-      </div>
-    </n-card>
-
     <n-spin :show="dashboardLoading">
       <n-alert v-if="errorText" class="status-alert" type="error" :show-icon="false">
         {{ errorText }}
@@ -36,15 +9,77 @@
       </n-alert>
 
       <div class="monitor-workspace">
+        <n-card class="target-panel">
+          <div class="target-panel__head">
+            <div>
+              <div class="target-panel__title">监控目标</div>
+              <div class="target-panel__count">{{ targets.length }} 台</div>
+            </div>
+            <n-button size="small" secondary @click="openAddMonitor">
+              <template #icon><n-icon><AddCircleOutline /></n-icon></template>
+              添加
+            </n-button>
+          </div>
+          <n-spin :show="targetsLoading">
+            <div class="target-list">
+              <div
+                v-for="target in targets"
+                :key="target.targetKey"
+                class="monitor-target-card"
+                role="button"
+                tabindex="0"
+                :class="[targetCardClass(target), { 'monitor-target-card--selected': target.targetKey === selectedTargetKey }]"
+                @click="selectTarget(target.targetKey)"
+                @keyup.enter="selectTarget(target.targetKey)"
+              >
+                <div class="monitor-target-card__top">
+                  <div class="monitor-target-card__icon" :class="{ 'monitor-target-card__icon--local': target.targetType === 'local' }">
+                    <n-icon size="22">
+                      <DesktopOutline v-if="target.targetType === 'local'" />
+                      <ServerOutline v-else />
+                    </n-icon>
+                  </div>
+                  <div class="monitor-target-card__main">
+                    <div class="monitor-target-card__name">{{ target.name }}</div>
+                    <div class="monitor-target-card__address">{{ targetSubtitle(target) }}</div>
+                  </div>
+                  <n-tag
+                    :type="targetTagType(target)"
+                    size="small"
+                    class="monitor-target-card__status"
+                    @click.stop="selectTarget(target.targetKey)"
+                  >
+                    {{ targetStatusText(target) }}
+                  </n-tag>
+                </div>
+                <div class="monitor-target-card__stats" v-if="target.targetType === 'local'">
+                  <div><span>CPU</span><strong>{{ formatPercent(target.summary?.cpuPercent) }}</strong></div>
+                  <div><span>内存</span><strong>{{ formatPercent(target.summary?.memoryPercent) }}</strong></div>
+                </div>
+                <div class="monitor-target-card__disabled" v-else-if="isTargetDisabled(target)">
+                  请在服务器管理启用
+                </div>
+                <div class="monitor-target-card__stats" v-else>
+                  <div><span>用户</span><strong>{{ target.username || '-' }}</strong></div>
+                  <div><span>采集</span><strong>{{ formatCompactTime(target.lastCollectTime) }}</strong></div>
+                </div>
+                <span
+                  v-if="target.targetType !== 'local'"
+                  class="remove-monitor"
+                  @click.stop="removeMonitorTarget(target)"
+                >
+                  移除监控
+                </span>
+              </div>
+            </div>
+          </n-spin>
+        </n-card>
+
         <div class="monitor-main">
           <n-card class="server-overview-card">
             <div class="server-overview">
               <div
                 class="server-overview__hero"
-                role="button"
-                tabindex="0"
-                @click="showTargetDialog = true"
-                @keyup.enter="showTargetDialog = true"
               >
                 <div class="host-summary__main">
                   <div class="host-summary__icon" :class="{ 'host-summary__icon--local': isLocalTarget }">
@@ -68,8 +103,18 @@
                       <span>主机 {{ profile.hostName || '-' }}</span>
                       <span>网卡 {{ profile.primaryNetwork || '-' }}</span>
                       <span>最近采集 {{ formatTime(profile.lastCollectTime) }}</span>
-                      <span>{{ targets.length }} 台目标 · 点击切换</span>
+                      <span>{{ targets.length }} 台目标</span>
                     </div>
+                  </div>
+                  <div class="host-summary__actions">
+                    <n-button size="small" type="primary" :loading="profileRefreshing || targetsLoading" @click.stop="refreshMonitor">
+                      <template #icon><n-icon><RefreshOutline /></n-icon></template>
+                      刷新
+                    </n-button>
+                    <n-button size="small" secondary @click.stop="showProfileDialog = true">
+                      <template #icon><n-icon><EllipsisHorizontalOutline /></n-icon></template>
+                      更多
+                    </n-button>
                   </div>
                 </div>
                 <div class="host-summary__facts">
@@ -78,23 +123,6 @@
                     <strong>{{ item.value }}</strong>
                   </div>
                 </div>
-              </div>
-
-              <div class="server-overview__detail">
-                <div class="section-header server-overview__detail-head">
-                  <span>服务器档案</span>
-                  <span class="muted">分组详情</span>
-                </div>
-                <n-tabs type="line" animated>
-                  <n-tab-pane v-for="group in profileDetailGroups" :key="group.name" :name="group.name" :tab="group.tab">
-                    <div class="detail-grid">
-                      <div v-for="item in group.items" :key="item.label" class="detail-item">
-                        <span class="detail-label">{{ item.label }}</span>
-                        <span class="detail-value" :title="item.value">{{ item.value }}</span>
-                      </div>
-                    </div>
-                  </n-tab-pane>
-                </n-tabs>
               </div>
             </div>
           </n-card>
@@ -141,62 +169,28 @@
 
     </n-spin>
 
-    <n-modal v-model:show="showTargetDialog" preset="card" title="监控目标" class="target-dialog" style="width: min(860px, 92vw)">
+    <n-modal v-model:show="showProfileDialog" preset="card" title="服务器档案" class="profile-dialog" style="width: min(980px, 94vw)">
       <template #header-extra>
-        <span class="muted">{{ targets.length }} 台</span>
+        <span class="muted">分组详情</span>
       </template>
-      <n-spin :show="targetsLoading">
-        <div class="target-dialog-list">
-          <div
-            v-for="target in targets"
-            :key="target.targetKey"
-            class="monitor-target-card"
-            role="button"
-            tabindex="0"
-            :class="[targetCardClass(target), { 'monitor-target-card--selected': target.targetKey === selectedTargetKey }]"
-            @click="selectTargetFromDialog(target.targetKey)"
-            @keyup.enter="selectTargetFromDialog(target.targetKey)"
-          >
-            <div class="monitor-target-card__top">
-              <div class="monitor-target-card__icon" :class="{ 'monitor-target-card__icon--local': target.targetType === 'local' }">
-                <n-icon size="22">
-                  <DesktopOutline v-if="target.targetType === 'local'" />
-                  <ServerOutline v-else />
-                </n-icon>
+      <n-tabs type="segment" animated class="profile-tabs">
+        <n-tab-pane v-for="group in profileDetailGroups" :key="group.name" :name="group.name" :tab="group.tab">
+          <div class="profile-group-grid">
+            <section v-for="section in group.sections" :key="section.title" class="profile-section">
+              <div class="profile-section__title">{{ section.title }}</div>
+              <div class="detail-grid">
+                <div v-for="item in section.items" :key="item.label" class="detail-item">
+                  <span class="detail-label">{{ item.label }}</span>
+                  <span class="detail-value" :title="item.value">{{ item.value }}</span>
+                </div>
               </div>
-              <div class="monitor-target-card__main">
-                <div class="monitor-target-card__name">{{ target.name }}</div>
-                <div class="monitor-target-card__address">{{ targetSubtitle(target) }}</div>
-              </div>
-              <n-tag :type="targetTagType(target)" size="small">{{ targetStatusText(target) }}</n-tag>
-            </div>
-            <div class="monitor-target-card__stats" v-if="target.targetType === 'local'">
-              <div><span>CPU</span><strong>{{ formatPercent(target.summary?.cpuPercent) }}</strong></div>
-              <div><span>内存</span><strong>{{ formatPercent(target.summary?.memoryPercent) }}</strong></div>
-            </div>
-            <div class="monitor-target-card__stats" v-else>
-              <div><span>用户</span><strong>{{ target.username || '-' }}</strong></div>
-              <div><span>采集</span><strong>{{ formatCompactTime(target.lastCollectTime) }}</strong></div>
-            </div>
-            <span
-              v-if="target.targetType !== 'local'"
-              class="remove-monitor"
-              @click.stop="removeMonitorTarget(target)"
-            >
-              移除监控
-            </span>
+            </section>
           </div>
-        </div>
-      </n-spin>
-      <template #footer>
-        <n-space justify="space-between">
-          <n-button @click="showTargetDialog = false">关闭</n-button>
-          <n-button type="primary" secondary @click="openAddMonitor">
-            <template #icon><n-icon><AddCircleOutline /></n-icon></template>
-            添加监控
-          </n-button>
-        </n-space>
-      </template>
+          <div v-if="group.note" class="profile-dialog__note">
+            {{ group.note }}
+          </div>
+        </n-tab-pane>
+      </n-tabs>
     </n-modal>
 
     <n-modal v-model:show="showAddMonitorModal" preset="card" title="添加监控" style="width: 460px">
@@ -229,11 +223,11 @@ import {
   AddCircleOutline,
   AnalyticsOutline,
   DesktopOutline,
+  EllipsisHorizontalOutline,
   HardwareChipOutline,
   RefreshOutline,
   ServerOutline,
-  SpeedometerOutline,
-  SyncOutline
+  SpeedometerOutline
 } from '@vicons/ionicons5'
 import {
   serverMonitorApi,
@@ -241,6 +235,7 @@ import {
   type ServerMonitorDashboard,
   type ServerMonitorTarget
 } from '@/api/monitor'
+import { serverApi as serverManagerApi } from '@/api/server'
 
 const route = useRoute()
 const router = useRouter()
@@ -248,6 +243,7 @@ const message = useMessage()
 
 const targets = ref<ServerMonitorTarget[]>([])
 const availableServers = ref<ServerMonitorAvailableServer[]>([])
+const serverStatusMap = ref<Map<number, number>>(new Map())
 const selectedTargetKey = ref<string>((route.query.targetKey as string) || (route.query.serverId ? `server:${route.query.serverId}` : 'local'))
 const selectedAddServerId = ref<number | null>(null)
 const dashboard = ref<ServerMonitorDashboard | null>(null)
@@ -257,7 +253,7 @@ const dashboardLoading = ref(false)
 const profileRefreshing = ref(false)
 const addMonitorLoading = ref(false)
 const removingTargetKey = ref('')
-const showTargetDialog = ref(false)
+const showProfileDialog = ref(false)
 const showAddMonitorModal = ref(false)
 const errorText = ref('')
 
@@ -341,58 +337,71 @@ const hostSummaryItems = computed(() => [
 const profileDetailGroups = computed(() => {
   const groups = [
     {
-      name: 'basic',
-      tab: '概览',
-      items: [
-        { label: '展示名称', value: valueOrDash(profile.value.displayName || dashboard.value?.target?.name) },
-        { label: '主机名称', value: valueOrDash(profile.value.hostName) },
-        { label: '入口IP', value: valueOrDash(profile.value.entryIp) },
-        { label: '主网卡', value: valueOrDash(profile.value.primaryNetwork) },
-        { label: '主地址', value: valueOrDash(profile.value.primaryAddress) }
+      name: 'basic-system',
+      tab: '概览 / 系统',
+      sections: [
+        {
+          title: '概览',
+          items: [
+            { label: '展示名称', value: valueOrDash(profile.value.displayName || dashboard.value?.target?.name) },
+            { label: '主机名称', value: valueOrDash(profile.value.hostName) },
+            { label: '入口IP', value: valueOrDash(profile.value.entryIp) },
+            { label: '主网卡', value: valueOrDash(profile.value.primaryNetwork) },
+            { label: '主地址', value: valueOrDash(profile.value.primaryAddress) }
+          ]
+        },
+        {
+          title: '系统',
+          items: [
+            { label: '操作系统', value: valueOrDash(profile.value.osName) },
+            { label: '系统版本', value: valueOrDash(profile.value.osVersion) },
+            { label: '内核名称', value: valueOrDash(profile.value.kernelName) },
+            { label: '内核版本', value: valueOrDash(profile.value.kernelVersion) },
+            { label: '系统架构', value: valueOrDash(profile.value.arch) },
+            { label: '时区', value: valueOrDash(profile.value.timezone) }
+          ]
+        }
       ]
     },
     {
-      name: 'system',
-      tab: '系统',
-      items: [
-        { label: '操作系统', value: valueOrDash(profile.value.osName) },
-        { label: '系统版本', value: valueOrDash(profile.value.osVersion) },
-        { label: '内核名称', value: valueOrDash(profile.value.kernelName) },
-        { label: '内核版本', value: valueOrDash(profile.value.kernelVersion) },
-        { label: '系统架构', value: valueOrDash(profile.value.arch) },
-        { label: '时区', value: valueOrDash(profile.value.timezone) }
-      ]
-    },
-    {
-      name: 'hardware',
-      tab: '硬件',
-      items: [
-        { label: 'CPU核心', value: valueOrDash(profile.value.cpuCores) },
-        { label: 'CPU线程', value: valueOrDash(profile.value.cpuThreads) },
-        { label: 'CPU厂商', value: valueOrDash(profile.value.cpuVendor) },
-        { label: 'CPU型号', value: valueOrDash(profile.value.cpuModel) },
-        { label: '内存总量', value: valueOrDash(profile.value.memoryTotal) },
-        { label: 'Swap总量', value: valueOrDash(profile.value.swapTotal) }
-      ]
-    },
-    {
-      name: 'storage',
-      tab: '存储',
-      items: [
-        { label: '根分区容量', value: valueOrDash(profile.value.rootDiskTotal) },
-        { label: '磁盘总量', value: valueOrDash(profile.value.diskTotal) },
-        { label: '磁盘数量', value: valueOrDash(profile.value.diskCount) }
+      name: 'hardware-storage',
+      tab: '硬件 / 存储',
+      sections: [
+        {
+          title: '硬件',
+          items: [
+            { label: 'CPU核心', value: valueOrDash(profile.value.cpuCores) },
+            { label: 'CPU线程', value: valueOrDash(profile.value.cpuThreads) },
+            { label: 'CPU厂商', value: valueOrDash(profile.value.cpuVendor) },
+            { label: 'CPU型号', value: valueOrDash(profile.value.cpuModel) },
+            { label: '内存总量', value: valueOrDash(profile.value.memoryTotal) },
+            { label: 'Swap总量', value: valueOrDash(profile.value.swapTotal) }
+          ]
+        },
+        {
+          title: '存储',
+          items: [
+            { label: '根分区容量', value: valueOrDash(profile.value.rootDiskTotal) },
+            { label: '磁盘总量', value: valueOrDash(profile.value.diskTotal) },
+            { label: '磁盘数量', value: valueOrDash(profile.value.diskCount) }
+          ]
+        }
       ]
     },
     {
       name: 'runtime',
       tab: '运行环境',
-      items: [
-        { label: '虚拟化', value: valueOrDash(profile.value.virtualization) },
-        { label: '包管理器', value: valueOrDash(profile.value.packageManager) },
-        { label: '启动时间', value: valueOrDash(profile.value.bootTime) },
-        { label: '运行时长', value: valueOrDash(profile.value.uptime) },
-        { label: '最后采集', value: formatTime(profile.value.lastCollectTime) }
+      sections: [
+        {
+          title: '运行环境',
+          items: [
+            { label: '虚拟化', value: valueOrDash(profile.value.virtualization) },
+            { label: '包管理器', value: valueOrDash(profile.value.packageManager) },
+            { label: '启动时间', value: valueOrDash(profile.value.bootTime) },
+            { label: '运行时长', value: valueOrDash(profile.value.uptime) },
+            { label: '最后采集', value: formatTime(profile.value.lastCollectTime) }
+          ]
+        }
       ]
     }
   ]
@@ -401,12 +410,17 @@ const profileDetailGroups = computed(() => {
     groups.push({
       name: 'jvm',
       tab: 'JVM',
-      items: [
-        { label: 'JVM名称', value: valueOrDash(latest.value.jvm?.name) },
-        { label: 'JVM版本', value: valueOrDash(latest.value.jvm?.version) },
-        { label: '启动时间', value: valueOrDash(latest.value.jvm?.startTime) },
-        { label: '运行时长', value: valueOrDash(latest.value.jvm?.uptime) },
-        { label: '堆内存', value: formatJvmHeap.value }
+      sections: [
+        {
+          title: 'JVM',
+          items: [
+            { label: 'JVM名称', value: valueOrDash(latest.value.jvm?.name) },
+            { label: 'JVM版本', value: valueOrDash(latest.value.jvm?.version) },
+            { label: '启动时间', value: valueOrDash(latest.value.jvm?.startTime) },
+            { label: '运行时长', value: valueOrDash(latest.value.jvm?.uptime) },
+            { label: '堆内存', value: formatJvmHeap.value }
+          ]
+        }
       ]
     })
   }
@@ -422,9 +436,13 @@ const formatJvmHeap = computed(() => {
 async function loadTargets() {
   targetsLoading.value = true
   try {
-    targets.value = await serverMonitorApi.targets()
-    if (!targets.value.some((target) => target.targetKey === selectedTargetKey.value)) {
-      selectedTargetKey.value = targets.value[0]?.targetKey || 'local'
+    const [targetList] = await Promise.all([
+      serverMonitorApi.targets(),
+      loadServerStatusMap()
+    ])
+    targets.value = decorateTargets(targetList)
+    if (!targets.value.some((target) => target.targetKey === selectedTargetKey.value && !isTargetDisabled(target))) {
+      selectedTargetKey.value = targets.value.find((target) => !isTargetDisabled(target))?.targetKey || 'local'
     }
     await loadDashboard()
   } catch {
@@ -436,9 +454,54 @@ async function loadTargets() {
 
 async function refreshTargetsOnly() {
   try {
-    targets.value = await serverMonitorApi.targets()
+    const [targetList] = await Promise.all([
+      serverMonitorApi.targets(),
+      loadServerStatusMap()
+    ])
+    targets.value = decorateTargets(targetList)
+    applyDashboardServerStatus()
   } catch {
     // 保留现有目标卡片，避免短暂接口失败造成页面跳动
+  }
+}
+
+async function loadServerStatusMap() {
+  try {
+    const res = await serverManagerApi.list({ page: 1, pageSize: 100 })
+    serverStatusMap.value = new Map(
+      (res.records || [])
+        .filter((server) => typeof server.id === 'number')
+        .map((server) => [server.id!, server.status])
+    )
+  } catch {
+    serverStatusMap.value = new Map()
+  }
+}
+
+function decorateTargets(targetList: ServerMonitorTarget[]) {
+  return targetList.map(decorateTarget)
+}
+
+function decorateTarget(target: ServerMonitorTarget) {
+  if (target.targetType !== 'ssh' || typeof target.serverId !== 'number') {
+    return target
+  }
+  const status = serverStatusMap.value.get(target.serverId)
+  if (status === undefined) {
+    return target
+  }
+  return {
+    ...target,
+    serverStatus: status,
+    status: status === 1 ? target.status : 'disabled'
+  }
+}
+
+function applyDashboardServerStatus() {
+  if (!dashboard.value?.target) return
+  dashboard.value = {
+    ...dashboard.value,
+    target: decorateTarget(dashboard.value.target)
   }
 }
 
@@ -459,9 +522,11 @@ async function loadDashboard(silent = false) {
   errorText.value = ''
   try {
     dashboard.value = await serverMonitorApi.dashboard(selectedTargetKey.value)
+    applyDashboardServerStatus()
     await nextTick()
     renderCharts()
   } catch {
+    dashboard.value = null
     errorText.value = '监控数据加载失败'
   } finally {
     if (!silent) dashboardLoading.value = false
@@ -473,6 +538,7 @@ async function refreshProfile() {
   profileRefreshing.value = true
   try {
     dashboard.value = await serverMonitorApi.refreshProfile(selectedTargetKey.value)
+    applyDashboardServerStatus()
     message.success('服务器档案已刷新')
     await loadTargets()
   } catch {
@@ -482,16 +548,44 @@ async function refreshProfile() {
   }
 }
 
+async function refreshMonitor() {
+  if (!selectedTargetKey.value) return
+  profileRefreshing.value = true
+  targetsLoading.value = true
+  errorText.value = ''
+  try {
+    const [targetList] = await Promise.all([
+      serverMonitorApi.targets(),
+      loadServerStatusMap()
+    ])
+    targets.value = decorateTargets(targetList)
+    if (!targets.value.some((target) => target.targetKey === selectedTargetKey.value && !isTargetDisabled(target))) {
+      selectedTargetKey.value = targets.value.find((target) => !isTargetDisabled(target))?.targetKey || 'local'
+      router.replace({ path: route.path, query: { targetKey: selectedTargetKey.value } })
+    }
+    dashboard.value = await serverMonitorApi.refreshProfile(selectedTargetKey.value)
+    applyDashboardServerStatus()
+    await nextTick()
+    renderCharts()
+    message.success('监控数据已刷新')
+  } catch {
+    errorText.value = '监控数据刷新失败'
+  } finally {
+    profileRefreshing.value = false
+    targetsLoading.value = false
+  }
+}
+
 function selectTarget(targetKey: string) {
   if (selectedTargetKey.value === targetKey) return
+  const target = targets.value.find((item) => item.targetKey === targetKey)
+  if (target && isTargetDisabled(target)) {
+    message.warning('该服务器已禁用，请在服务器管理启用')
+    return
+  }
   selectedTargetKey.value = targetKey
   router.replace({ path: route.path, query: { targetKey: selectedTargetKey.value } })
   loadDashboard()
-}
-
-function selectTargetFromDialog(targetKey: string) {
-  showTargetDialog.value = false
-  selectTarget(targetKey)
 }
 
 async function openAddMonitor() {
@@ -502,7 +596,6 @@ async function openAddMonitor() {
     return
   }
   showAddMonitorModal.value = true
-  showTargetDialog.value = false
 }
 
 async function enableSelectedServer() {
@@ -553,6 +646,7 @@ function targetSubtitle(target: ServerMonitorTarget) {
 }
 
 function targetStatusText(target: Partial<ServerMonitorTarget>) {
+  if (isTargetDisabled(target)) return '禁用'
   const status = target.status || target.summary?.status
   if (status === 'normal' || status === 'online') return '在线'
   if (status === 'error' || status === 'offline') return '异常'
@@ -560,6 +654,7 @@ function targetStatusText(target: Partial<ServerMonitorTarget>) {
 }
 
 function targetTagType(target: Partial<ServerMonitorTarget>) {
+  if (isTargetDisabled(target)) return 'error'
   const status = target.status || target.summary?.status
   if (status === 'normal' || status === 'online') return 'success'
   if (status === 'error' || status === 'offline') return 'error'
@@ -567,10 +662,15 @@ function targetTagType(target: Partial<ServerMonitorTarget>) {
 }
 
 function targetCardClass(target: Partial<ServerMonitorTarget>) {
+  if (isTargetDisabled(target)) return 'monitor-target-card--disabled'
   const status = target.status || target.summary?.status
   if (status === 'normal' || status === 'online') return 'monitor-target-card--normal'
   if (status === 'error' || status === 'offline') return 'monitor-target-card--error'
   return 'monitor-target-card--pending'
+}
+
+function isTargetDisabled(target: Partial<ServerMonitorTarget>) {
+  return target.targetType === 'ssh' && (target.serverStatus === 0 || target.status === 'disabled')
 }
 
 function profileForTarget(target: ServerMonitorTarget, key: string) {
@@ -799,11 +899,16 @@ onUnmounted(() => {
 }
 
 .monitor-workspace {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
   min-width: 0;
 }
 
 .monitor-main,
-.server-overview-card {
+.server-overview-card,
+.target-panel {
   min-width: 0;
 }
 
@@ -817,9 +922,46 @@ onUnmounted(() => {
   padding: 0;
 }
 
-.server-overview {
+.target-panel {
+  position: sticky;
+  top: 14px;
+}
+
+.target-panel :deep(.n-card__content) {
+  padding: 14px;
+}
+
+.target-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.target-panel__title {
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.target-panel__count {
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.target-list {
   display: grid;
-  grid-template-columns: minmax(360px, .9fr) minmax(0, 1.1fr);
+  gap: 8px;
+  max-height: calc(100dvh - 190px);
+  overflow-y: auto;
+  padding-right: 3px;
+}
+
+.server-overview {
+  display: block;
   min-width: 0;
 }
 
@@ -829,13 +971,7 @@ onUnmounted(() => {
   gap: 18px;
   min-width: 0;
   padding: 22px;
-  border-right: 1px solid #e2e8f0;
-  cursor: pointer;
   transition: background .18s ease;
-}
-
-.server-overview__hero:hover {
-  background: #f8fbff;
 }
 
 .server-overview__detail {
@@ -845,15 +981,6 @@ onUnmounted(() => {
 
 .server-overview__detail-head {
   margin-bottom: 8px;
-}
-
-.target-dialog-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  max-height: min(62vh, 620px);
-  overflow-y: auto;
-  padding-right: 4px;
 }
 
 .monitor-target-card {
@@ -889,10 +1016,41 @@ onUnmounted(() => {
   background: #94a3b8;
 }
 
+.monitor-target-card--disabled {
+  color: #94a3b8;
+  background: #f8fafc;
+  cursor: not-allowed;
+}
+
+.monitor-target-card--disabled::before {
+  background: #cbd5e1;
+}
+
+.monitor-target-card--disabled .monitor-target-card__icon {
+  color: #64748b;
+  background: #f1f5f9;
+}
+
+.monitor-target-card--disabled .monitor-target-card__name,
+.monitor-target-card--disabled .monitor-target-card__stats strong {
+  color: #64748b;
+}
+
+.monitor-target-card--disabled .monitor-target-card__address,
+.monitor-target-card--disabled .monitor-target-card__stats div {
+  color: #94a3b8;
+}
+
 .monitor-target-card:hover {
   transform: translateY(-1px);
   border-color: #94a3b8;
   box-shadow: 0 10px 24px rgba(15, 23, 42, .08);
+}
+
+.monitor-target-card--disabled:hover {
+  transform: none;
+  border-color: #e2e8f0;
+  box-shadow: none;
 }
 
 .monitor-target-card--selected {
@@ -989,6 +1147,19 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+.monitor-target-card__disabled {
+  position: relative;
+  z-index: 1;
+  margin-top: 10px;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.monitor-target-card__status {
+  cursor: pointer;
+}
+
 .remove-monitor {
   display: inline-block;
   margin-top: 8px;
@@ -1022,6 +1193,18 @@ onUnmounted(() => {
 .host-summary__body,
 .host-summary__title-row {
   min-width: 0;
+}
+
+.host-summary__body {
+  flex: 1;
+}
+
+.host-summary__actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .host-summary__title-row {
@@ -1094,13 +1277,13 @@ onUnmounted(() => {
 
 .overview-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .metric-card :deep(.n-card__content) {
-  min-height: 144px;
-  padding: 18px;
+  min-height: 122px;
+  padding: 14px;
 }
 
 .metric-head {
@@ -1110,16 +1293,23 @@ onUnmounted(() => {
 }
 
 .metric-value {
-  margin: 16px 0 12px;
-  font-size: 28px;
+  margin: 12px 0 10px;
+  overflow: hidden;
+  font-size: 24px;
   font-weight: 700;
   color: var(--n-title-text-color);
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .metric-extra {
-  margin-top: 10px;
+  margin-top: 8px;
+  overflow: hidden;
   font-size: 12px;
   line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .icon-cpu { color: #2f6bff; }
@@ -1127,24 +1317,70 @@ onUnmounted(() => {
 .icon-disk { color: #f0a020; }
 .icon-network { color: #0e7a7a; }
 
-.detail-grid {
+.profile-dialog :deep(.n-card) {
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.profile-dialog :deep(.n-card-header) {
+  padding: 20px 24px 14px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.profile-dialog :deep(.n-card__content) {
+  padding: 16px 24px 22px;
+  background: #f8fafc;
+}
+
+.profile-tabs :deep(.n-tabs-nav) {
+  margin-bottom: 14px;
+}
+
+.profile-tabs :deep(.n-tabs-tab) {
+  min-width: 116px;
+  justify-content: center;
+}
+
+.profile-group-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  padding-top: 8px;
+  gap: 14px;
+}
+
+.profile-section {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+}
+
+.profile-section__title {
+  margin-bottom: 12px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
 }
 
 .detail-item {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
+  grid-template-columns: 86px minmax(0, 1fr);
   gap: 12px;
   align-items: center;
   min-width: 0;
-  min-height: 40px;
-  padding: 9px 12px;
+  min-height: 38px;
+  padding: 8px 10px;
   border: 1px solid #edf2f7;
   border-radius: 8px;
-  background: #ffffff;
+  background: #fbfdff;
 }
 
 .detail-label {
@@ -1160,6 +1396,12 @@ onUnmounted(() => {
   line-height: 1.45;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.profile-dialog__note {
+  margin-top: 12px;
+  color: #64748b;
+  font-size: 12px;
 }
 
 .trend-section {
@@ -1225,19 +1467,32 @@ onUnmounted(() => {
 }
 
 @media (max-width: 1440px) {
-  .server-overview {
-    grid-template-columns: 1fr;
-  }
-
   .server-overview__hero {
-    border-right: 0;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 0;
   }
 }
 
 @media (max-width: 1200px) {
+  .monitor-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .target-panel {
+    position: static;
+  }
+
+  .target-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: none;
+    overflow-y: visible;
+  }
+
   .overview-grid,
   .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-group-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1272,9 +1527,19 @@ onUnmounted(() => {
   .overview-grid,
   .host-summary__facts,
   .detail-grid,
-  .target-dialog-list,
+  .target-list,
   .chart-card-grid {
     grid-template-columns: 1fr;
+  }
+
+  .host-summary__main {
+    flex-wrap: wrap;
+  }
+
+  .host-summary__actions {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 68px;
   }
 
   .chart-card :deep(.n-card__content) {

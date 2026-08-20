@@ -1,6 +1,6 @@
 <template>
   <div
-    class="login-page"
+    class="login-page admin-login-page"
     :class="{ 'compact-captcha': compactCaptcha }"
     :style="loginViewportStyle"
   >
@@ -920,6 +920,10 @@ function goRegister() {
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 44%),
     radial-gradient(circle at 52% 50%, rgba(80, 101, 215, 0.12) 0%, rgba(80, 101, 215, 0) 42%);
+}
+
+.admin-login-page > :not(.login-card):not(.slider-modal) {
+  display: none !important;
 }
 
 .login-card {

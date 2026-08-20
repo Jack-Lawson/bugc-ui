@@ -87,6 +87,15 @@ export const serverApi = {
     })
   },
 
+  // 修改状态
+  changeStatus(id: number, status: number) {
+    return request({
+      url: '/monitor/server-manager',
+      method: 'put',
+      data: { id, status }
+    })
+  },
+
   // 删除
   remove(id: number) {
     return request({

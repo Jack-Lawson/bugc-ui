@@ -35,7 +35,12 @@
             <div class="server-name">{{ server.name }}</div>
             <div class="server-host">{{ server.host }}:{{ server.port }}</div>
           </div>
-          <n-tag :type="server.status === 1 ? 'success' : 'default'" size="small">
+          <n-tag
+            :type="server.status === 1 ? 'success' : 'error'"
+            size="small"
+            class="server-status-tag"
+            @click="handleStatusClick(server)"
+          >
             {{ server.status === 1 ? '启用' : '禁用' }}
           </n-tag>
         </div>
@@ -64,11 +69,13 @@
             <template #icon><n-icon><TerminalOutline /></n-icon></template>
             连接
           </n-button>
-          <n-button size="small" @click="handleTest(server)" :loading="testingId === server.id">
-            <template #icon><n-icon><FlashOutline /></n-icon></template>
-            测试
-          </n-button>
-          <n-button size="small" @click="handleMonitor(server)" :loading="monitoringId === server.id" :disabled="server.status !== 1">
+          <n-button
+            v-if="!isServerMonitored(server)"
+            size="small"
+            @click="handleMonitor(server)"
+            :loading="monitoringId === server.id"
+            :disabled="server.status !== 1"
+          >
             <template #icon><n-icon><StatsChartOutline /></n-icon></template>
             监控
           </n-button>
@@ -206,8 +213,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMessage, type FormInst, type FormRules } from 'naive-ui'
-import { SearchOutline, AddOutline, ServerOutline, TerminalOutline, FlashOutline, CreateOutline, TrashOutline, ExpandOutline, ContractOutline, CloseOutline, StatsChartOutline, CloudUploadOutline } from '@vicons/ionicons5'
+import { useDialog, useMessage, type FormInst, type FormRules } from 'naive-ui'
+import { SearchOutline, AddOutline, ServerOutline, TerminalOutline, CreateOutline, TrashOutline, ExpandOutline, ContractOutline, CloseOutline, StatsChartOutline, CloudUploadOutline } from '@vicons/ionicons5'
 import { serverApi, type Server } from '@/api/server'
 import { serverMonitorApi } from '@/api/monitor'
 import { useUserStore } from '@/stores/user'
@@ -217,6 +224,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 
 const message = useMessage()
+const dialog = useDialog()
 const router = useRouter()
 
 // 列表数据
@@ -224,8 +232,9 @@ const servers = ref<Server[]>([])
 const loading = ref(false)
 const searchName = ref('')
 const searchStatus = ref<number | null>(null)
-const testingId = ref<number | null>(null)
 const monitoringId = ref<number | null>(null)
+const monitoredServerIds = ref<Set<number>>(new Set())
+const statusChangingId = ref<number | null>(null)
 
 const statusOptions = [
   { label: '启用', value: 1 },
@@ -318,10 +327,24 @@ async function loadServers() {
       status: searchStatus.value ?? undefined
     })
     servers.value = res.records || []
+    await loadMonitorTargets()
   } catch (error) {
     console.error('加载服务器列表失败', error)
   } finally {
     loading.value = false
+  }
+}
+
+async function loadMonitorTargets() {
+  try {
+    const targets = await serverMonitorApi.targets()
+    monitoredServerIds.value = new Set(
+      targets
+        .map((target) => target.serverId)
+        .filter((id): id is number => typeof id === 'number')
+    )
+  } catch {
+    monitoredServerIds.value = new Set()
   }
 }
 
@@ -449,21 +472,38 @@ async function handleDelete(id: number) {
   }
 }
 
-// 测试连接
-async function handleTest(server: Server) {
-  testingId.value = server.id!
+function isServerMonitored(server: Server) {
+  return !!server.id && monitoredServerIds.value.has(server.id)
+}
+
+function handleStatusClick(server: Server) {
+  if (!server.id || statusChangingId.value) return
+  const nextStatus = server.status === 1 ? 0 : 1
+  const actionText = nextStatus === 1 ? '启用' : '禁用'
+  dialog.warning({
+    title: `${actionText}服务器`,
+    content: `确定要${actionText}该服务器吗？`,
+    positiveText: actionText,
+    negativeText: '取消',
+    positiveButtonProps: {
+      type: nextStatus === 1 ? 'primary' : 'error'
+    },
+    onPositiveClick: () => changeServerStatus(server, nextStatus)
+  })
+}
+
+async function changeServerStatus(server: Server, status: number) {
+  if (!server.id) return
+  statusChangingId.value = server.id
   try {
-    const success = await serverApi.testConnection(server.id!)
-    if (success) {
-      message.success('连接成功')
-      loadServers()
-    } else {
-      message.error('连接失败')
-    }
-  } catch (error) {
-    message.error('连接测试失败')
+    await serverApi.changeStatus(server.id, status)
+    server.status = status
+    message.success(status === 1 ? '已启用' : '已禁用')
+    await loadMonitorTargets()
+  } catch {
+    // 请求拦截器会展示后端返回的具体错误，避免重复弹窗。
   } finally {
-    testingId.value = null
+    statusChangingId.value = null
   }
 }
 
@@ -474,6 +514,7 @@ async function handleMonitor(server: Server) {
   try {
     const dashboard = await serverMonitorApi.enableServer(server.id)
     message.success('已加入服务监控')
+    await loadMonitorTargets()
     await router.push({ path: '/monitor/server', query: { targetKey: dashboard.target?.targetKey || `server:${server.id}` } })
   } catch (error) {
     message.error('打开监控失败')
@@ -759,6 +800,11 @@ onUnmounted(() => {
   font-size: 13px;
   color: #6b7280;
   font-family: monospace;
+}
+
+.server-status-tag {
+  cursor: pointer;
+  user-select: none;
 }
 
 .server-details {

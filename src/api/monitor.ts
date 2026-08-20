@@ -177,6 +177,7 @@ export interface ServerMonitorTarget {
   targetKey: string
   targetType: 'local' | 'ssh'
   serverId?: number
+  serverStatus?: number
   name: string
   status: 'pending' | 'normal' | 'error' | string
   lastCollectTime?: string

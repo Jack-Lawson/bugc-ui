@@ -1083,7 +1083,7 @@ function handleUserAction(key: string) {
 .layout-sider-toggle {
   position: fixed;
   top: 50%;
-  z-index: 3000;
+  z-index: 900;
   display: flex;
   align-items: center;
   justify-content: center;
