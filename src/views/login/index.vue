@@ -124,7 +124,6 @@ import { useUserStore } from '@/stores/user'
 import { useSiteStore } from '@/stores/site'
 import { authApi } from '@/api/auth'
 import { configGroupApi } from '@/api/org'
-import { authConfig } from '@/config/app'
 
 const router = useRouter()
 const route = useRoute()
@@ -185,10 +184,9 @@ const smsCountdown = ref(0)
 async function loadPublicConfig() {
   try {
     const config = await configGroupApi.getPublicConfig()
-    const stopVerify = authConfig.stopVerify ?? config.login?.stopVerify !== false
 
     stopLogin.value = config.login?.stopLogin || false
-    captchaEnabled.value = !stopLogin.value && stopVerify && (config.login?.captchaEnabled || false)
+    captchaEnabled.value = !stopLogin.value && (config.login?.captchaEnabled || false)
     captchaType.value = config.login?.captchaType || 'image'
     rememberMeEnabled.value = config.login?.rememberMe !== false
     registerEnabled.value = config.register?.enabled !== false

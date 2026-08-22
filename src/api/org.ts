@@ -187,7 +187,7 @@ export const configGroupApi = {
   // 获取公开配置（不需要登录）
   getPublicConfig(): Promise<{
     system: { siteName: string; siteDescription: string; siteLogo: string; copyright: string; icp: string }
-    login: { stopLogin: boolean; stopVerify: boolean; captchaEnabled: boolean; captchaType: string; maxRetryCount: number; rememberMe: boolean }
+    login: { stopLogin: boolean; captchaEnabled: boolean; captchaType: string; maxRetryCount: number; rememberMe: boolean }
     register: { enabled: boolean; verifyEmail: boolean; verifyPhone: boolean; needAudit: boolean }
     password: { minLength: number; maxLength: number; requireUppercase: boolean; requireLowercase: boolean; requireNumber: boolean; requireSpecial: boolean }
     storage: { maxSize: number; allowTypes: string }

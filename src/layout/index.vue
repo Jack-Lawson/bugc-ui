@@ -4,7 +4,8 @@
     class="layout"
     :class="[
       layoutConfig.siderPosition === 'top' ? 'layout-top' : '',
-      isHiddenSiderMode ? 'layout-hidden-sider' : ''
+      isHiddenSiderMode ? 'layout-hidden-sider' : '',
+      isMobileSiderViewport ? 'layout-mobile' : ''
     ]"
   >
     <!-- 侧边栏（左侧/右侧模式） -->
@@ -55,6 +56,12 @@
         class="layout-menu"
       />
     </n-layout-sider>
+
+    <div
+      v-if="isMobileMenuOpen"
+      class="layout-mobile-mask"
+      @click="collapsed = true"
+    ></div>
 
     <button
       v-if="layoutConfig.siderPosition !== 'top' && (!isMobileSiderViewport || !collapsed)"
@@ -423,6 +430,11 @@ const layoutConfig = computed(() => ({
 const isHiddenSiderMode = computed(() => themeStore.siderPosition === 'hidden')
 const shouldFullyHideSider = computed(() => isHiddenSiderMode.value || isMobileSiderViewport.value)
 const siderCollapsedWidth = computed(() => shouldFullyHideSider.value ? 0 : 64)
+const isMobileMenuOpen = computed(() => (
+  isMobileSiderViewport.value &&
+  layoutConfig.value.siderPosition !== 'top' &&
+  !collapsed.value
+))
 
 // 顶栏动态样式
 const headerStyle = computed(() => {
@@ -464,6 +476,15 @@ watch(
   () => themeStore.siderPosition,
   () => {
     syncMobileSiderState()
+  }
+)
+
+watch(
+  () => route.path,
+  () => {
+    if (isMobileSiderViewport.value && layoutConfig.value.siderPosition !== 'top') {
+      collapsed.value = true
+    }
   }
 )
 
@@ -1015,6 +1036,9 @@ const breadcrumbs = computed(() => {
 // 菜单点击
 function handleMenuClick(key: string) {
   navigateByKey(key)
+  if (isMobileSiderViewport.value && layoutConfig.value.siderPosition !== 'top') {
+    collapsed.value = true
+  }
 }
 
 function navigateByKey(key: string) {
@@ -1022,6 +1046,9 @@ function navigateByKey(key: string) {
   if (key.startsWith('external:')) {
     const url = key.replace('external:', '')
     window.open(url, '_blank')
+    if (isMobileSiderViewport.value && layoutConfig.value.siderPosition !== 'top') {
+      collapsed.value = true
+    }
     return
   }
 
@@ -1108,6 +1135,14 @@ function handleUserAction(key: string) {
 
 .layout-sider-toggle:active {
   transform: translateY(-50%) scale(0.96);
+}
+
+.layout-mobile-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 890;
+  background: rgba(15, 23, 42, 0.38);
+  backdrop-filter: blur(2px);
 }
 
 body.dark-theme .layout-sider {
@@ -1587,9 +1622,62 @@ body.dark-theme .user-name {
 }
 
 @media (max-width: 720px) {
+  .layout.layout-mobile {
+    :deep(.n-layout-scroll-container) {
+      overflow-x: hidden;
+    }
+  }
+
+  .layout-mobile .layout-sider {
+    position: fixed !important;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 901;
+    box-shadow: 12px 0 32px rgba(15, 23, 42, 0.2);
+  }
+
+  .layout-mobile .layout-sider.sider-right {
+    right: 0;
+    left: auto;
+    box-shadow: -12px 0 32px rgba(15, 23, 42, 0.2);
+  }
+
+  .layout-mobile .layout-sider-toggle {
+    z-index: 902;
+    width: 40px;
+    height: 40px;
+  }
+
   .layout-header {
+    height: 56px;
     padding: 0 12px;
     gap: 8px;
+  }
+
+  .layout-top .layout-header {
+    overflow: hidden;
+  }
+
+  .header-logo {
+    min-width: 0;
+
+    .logo-text {
+      max-width: 112px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .header-menu {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
   }
 
   .header-left {
@@ -1620,6 +1708,14 @@ body.dark-theme .user-name {
   .user-name,
   .user-info .n-icon {
     display: none;
+  }
+
+  .message-popover {
+    width: min(360px, calc(100vw - 24px));
+  }
+
+  :deep(.tab-bar) {
+    top: 56px;
   }
 }
 

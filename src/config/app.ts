@@ -5,11 +5,6 @@ function parsePositiveNumber(value: string | undefined, fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
-function parseOptionalBoolean(value: string | undefined) {
-  if (value === undefined || value === '') return undefined
-  return value.toLowerCase() === 'true'
-}
-
 function toWebSocketUrl(url: string) {
   return url.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
 }
@@ -38,10 +33,6 @@ export const siteDefaults = {
   watermarkCustomText: '',
   watermarkOpacity: 0.1,
   disableDevtool: false
-}
-
-export const authConfig = {
-  stopVerify: parseOptionalBoolean(import.meta.env.VITE_STOP_VERIFY)
 }
 
 export const defaultSystemConfigs = {
@@ -152,8 +143,8 @@ export const themeDefaults = {
 } as const
 
 export const storageKeys = {
-  user: 'mars-user',
-  userToken: 'mars-user-token',
+  user: 'bugc-user',
+  userToken: 'bugc-user-token',
   layoutTheme: 'layout-theme',
   layoutPosition: 'layout-position',
   layoutShowTabs: 'layout-show-tabs',

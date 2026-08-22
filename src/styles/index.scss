@@ -627,3 +627,162 @@ body.dark-theme {
   transform: translateX(20px);
   opacity: 0;
 }
+
+@media (max-width: 640px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  html, body, #app {
+    min-width: 0;
+  }
+
+  .page-container {
+    min-height: calc(100dvh - 56px);
+    padding: 10px;
+  }
+
+  .page-layout,
+  .n-card {
+    max-width: 100%;
+  }
+
+  .n-card > .n-card-header {
+    padding: 12px 14px;
+  }
+
+  .n-card > .n-card__content {
+    padding: 14px;
+  }
+
+  .search-form {
+    margin-bottom: 12px;
+
+    .n-form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .n-form-item {
+      width: 100%;
+      min-width: 0;
+      margin-right: 0 !important;
+      margin-bottom: 0;
+    }
+
+    .n-form-item-blank,
+    .n-input,
+    .n-input-number,
+    .n-date-picker,
+    .n-base-selection,
+    .n-select {
+      width: 100% !important;
+      min-width: 0;
+    }
+
+    .n-space {
+      width: 100%;
+      gap: 8px !important;
+    }
+
+    .n-space > div {
+      flex: 1 1 0;
+      min-width: 0;
+    }
+
+    .n-button {
+      width: 100%;
+    }
+  }
+
+  .table-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+
+    .n-space {
+      width: 100%;
+      gap: 8px !important;
+    }
+
+    .n-space > div {
+      flex: 1 1 calc(50% - 8px);
+      min-width: 0;
+    }
+
+    .n-button {
+      width: 100%;
+    }
+  }
+
+  .n-data-table {
+    width: 100%;
+  }
+
+  .n-data-table-wrapper,
+  .n-data-table-base-table,
+  .n-data-table-base-table-body {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .n-data-table-table {
+    min-width: max-content;
+  }
+
+  .pagination-container {
+    justify-content: flex-start !important;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .n-pagination {
+    min-width: max-content;
+  }
+
+  .n-modal,
+  .n-modal.n-card,
+  .n-modal-container .n-card {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px) !important;
+  }
+
+  .n-modal .n-card-header,
+  .n-modal .n-card__content,
+  .n-modal .n-card__footer {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .modal-form {
+    .n-grid {
+      display: block !important;
+    }
+
+    .n-gi {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin-left: 0 !important;
+    }
+
+    .n-form-item {
+      grid-template-columns: 1fr !important;
+      margin-bottom: 14px;
+    }
+
+    .n-form-item-label {
+      height: auto !important;
+      min-height: 0 !important;
+      padding: 0 0 6px !important;
+      text-align: left !important;
+    }
+
+    .n-form-item-blank {
+      min-width: 0;
+    }
+  }
+}

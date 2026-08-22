@@ -68,7 +68,6 @@ import { PersonCircleOutline } from '@vicons/ionicons5'
 import { useSiteStore } from '@/stores/site'
 import { authApi } from '@/api/auth'
 import { configGroupApi } from '@/api/org'
-import { authConfig } from '@/config/app'
 
 const router = useRouter()
 const message = useMessage()
@@ -113,10 +112,9 @@ async function loadConfig() {
   try {
     const config = await configGroupApi.getPublicConfig()
     const stopLogin = config.login?.stopLogin || false
-    const stopVerify = authConfig.stopVerify ?? config.login?.stopVerify !== false
 
     captchaType.value = config.login?.captchaType || 'image'
-    captchaEnabled.value = !stopLogin && stopVerify && captchaType.value === 'image' && (config.login?.captchaEnabled || false)
+    captchaEnabled.value = !stopLogin && captchaType.value === 'image' && (config.login?.captchaEnabled || false)
     verifyEmail.value = config.register?.verifyEmail || false
     verifyPhone.value = config.register?.verifyPhone || false
 

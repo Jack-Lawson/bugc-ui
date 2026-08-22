@@ -90,16 +90,20 @@
             <div class="toolbar-right">
               <n-input
                   v-model:value="searchName"
+                  class="file-search-input"
                   placeholder="请输入文件名称"
                   clearable
-                  style="width: 200px"
                   @keyup.enter="loadFiles"
               >
                 <template #suffix>
                   <n-icon style="cursor: pointer" @click="loadFiles"><SearchOutline/></n-icon>
                 </template>
               </n-input>
-              <n-button-group>
+              <n-button class="file-search-button" type="primary" @click="loadFiles">
+                <template #icon><n-icon><SearchOutline/></n-icon></template>
+                搜索
+              </n-button>
+              <n-button-group class="file-view-toggle">
                 <n-button :type="viewMode === 'list' ? 'primary' : 'default'" @click="viewMode = 'list'">
                   <template #icon><n-icon><ListOutline/></n-icon></template>
                 </n-button>
@@ -132,6 +136,9 @@
             >
               全选
             </n-checkbox>
+            <n-button text size="small" :disabled="files.length === 0" @click="handleInvertSelection">
+              反选
+            </n-button>
           </div>
 
           <!-- 文件列表区 -->
@@ -520,6 +527,12 @@ function handleSelectAll(checked: boolean) {
   } else {
     selectedIds.value = []
   }
+}
+
+function handleInvertSelection() {
+  const currentIds = files.value.map(f => f.id!).filter(Boolean)
+  const selectedSet = new Set(selectedIds.value)
+  selectedIds.value = currentIds.filter(id => !selectedSet.has(id))
 }
 
 // 分组操作
@@ -964,6 +977,14 @@ watch(
 
 .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 8px; }
 
+.file-search-input {
+  width: 200px;
+}
+
+.file-search-button {
+  display: none;
+}
+
 .file-manager-body {
   flex: 1;
   display: flex;
@@ -973,6 +994,9 @@ watch(
 }
 
 .select-all-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--n-border-color);
 }
@@ -1052,4 +1076,191 @@ watch(
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+@media (max-width: 640px) {
+  .file-layout {
+    min-width: 0;
+  }
+
+  .file-list-card {
+    min-height: calc(100dvh - 76px);
+  }
+
+  .file-list-card :deep(.n-card-header) {
+    padding: 12px;
+  }
+
+  .group-strip {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+  }
+
+  .group-strip-title {
+    font-size: 13px;
+  }
+
+  .group-list-wrapper {
+    margin: 0 -2px;
+  }
+
+  .group-list {
+    gap: 6px;
+  }
+
+  .group-item {
+    width: 92px;
+    min-height: 58px;
+    padding: 7px 8px;
+  }
+
+  .group-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .group-name {
+    font-size: 12px;
+  }
+
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column-reverse;
+    gap: 12px;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    width: 100%;
+    align-items: stretch;
+    min-width: 0;
+  }
+
+  .toolbar-left {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .toolbar-left :deep(.n-upload),
+  .toolbar-left :deep(.n-upload-trigger),
+  .toolbar-left :deep(.n-button),
+  .toolbar-left > .n-button {
+    width: 100%;
+  }
+
+  .toolbar-right {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .file-search-input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .file-search-button {
+    display: inline-flex;
+    flex-shrink: 0;
+    min-width: 72px;
+  }
+
+  .file-view-toggle {
+    flex-shrink: 0;
+  }
+
+  .toolbar-right :deep(.file-view-toggle) {
+    display: flex;
+    width: 82px;
+  }
+
+  .toolbar-right :deep(.file-view-toggle .n-button) {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .select-all-bar {
+    padding: 8px 12px;
+  }
+
+  .file-content-wrapper {
+    padding: 12px;
+  }
+
+  .file-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .file-card {
+    padding: 10px;
+  }
+
+  .file-preview {
+    height: 88px;
+  }
+
+  .file-actions {
+    flex-wrap: wrap;
+    gap: 3px 5px;
+    line-height: 1.5;
+  }
+
+  .file-row {
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .file-meta {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+
+  .pagination {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding: 10px 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .preview-container {
+    min-height: 220px;
+  }
+
+  .preview-image,
+  .preview-video {
+    max-height: 62vh;
+  }
+}
+
+@media (max-width: 380px) {
+  .toolbar-right {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .file-search-input {
+    grid-column: 1 / -1;
+  }
+
+  .file-search-button {
+    width: 100%;
+  }
+
+  .file-view-toggle {
+    justify-self: end;
+  }
+
+  .toolbar-left {
+    grid-template-columns: 1fr;
+  }
+
+  .file-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
