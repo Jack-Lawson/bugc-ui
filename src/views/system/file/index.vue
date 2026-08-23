@@ -4,7 +4,7 @@
       <n-card class="file-list-card" size="small">
         <template #header>
           <div class="group-strip">
-            <div class="group-strip-title">{{ categoryTitle }}分组</div>
+            <div class="group-strip-title">{{ categoryTitle }}文件夹</div>
             <div class="group-list-wrapper">
               <div class="group-list">
                 <div
@@ -29,7 +29,7 @@
                     </div>
                     <span class="group-count">{{ ungroupedCount }}</span>
                   </div>
-                  <span class="group-name">未分组</span>
+                  <span class="group-name">根目录</span>
                 </div>
                 <div
                     v-for="group in groups"
@@ -40,7 +40,7 @@
                 >
                   <div class="group-card-top">
                     <div class="group-icon">
-                      <n-icon><component :is="categoryIcon"/></n-icon>
+                      <n-icon><FolderOpenOutline/></n-icon>
                     </div>
                     <div class="group-card-actions" @click.stop>
                       <span class="group-count">{{ group.fileCount || 0 }}</span>
@@ -55,21 +55,33 @@
                   </div>
                   <span class="group-name">{{ group.name }}</span>
                 </div>
-                <button class="group-item group-add" type="button" @click="showGroupModal = true">
+                <button class="group-item group-add" type="button" @click="openCreateFolderModal">
                   <div class="group-card-top">
                     <div class="group-icon">
                       <n-icon><AddOutline/></n-icon>
                     </div>
                   </div>
-                  <span class="group-name">新增分组</span>
+                  <span class="group-name">新建文件夹</span>
                 </button>
               </div>
             </div>
           </div>
           <div class="toolbar">
             <div class="toolbar-left">
+              <n-button v-if="hasPermission('sys:file:upload')" @click="openCreateFolderModal">
+                <template #icon><n-icon><AddOutline/></n-icon></template>
+                新建
+              </n-button>
+              <n-button
+                  v-if="hasPermission('sys:file:upload') && activeType === 'file'"
+                  type="primary"
+                  @click="showUploadModal = true"
+              >
+                <template #icon><n-icon><CloudUploadOutline/></n-icon></template>
+                上传文件
+              </n-button>
               <n-upload
-                  v-if="hasPermission('sys:file:upload')"
+                  v-else-if="hasPermission('sys:file:upload')"
                   :custom-request="handleUpload"
                   :show-file-list="false"
                   :multiple="true"
@@ -77,7 +89,7 @@
               >
                 <n-button type="primary">
                   <template #icon><n-icon><CloudUploadOutline/></n-icon></template>
-                  上传
+                  上传文件
                 </n-button>
               </n-upload>
               <n-button :disabled="selectedIds.length === 0" @click="handleBatchDelete">
@@ -122,10 +134,26 @@
               <div class="drag-content">
                 <n-icon size="64" color="#fff"><CloudUploadOutline/></n-icon>
                 <h3>松开鼠标上传文件</h3>
-                <p>支持多文件同时上传</p>
+                <p>支持多文件或文件夹同时上传</p>
               </div>
             </div>
           </Transition>
+
+          <div class="folder-breadcrumb">
+            <n-breadcrumb>
+              <n-breadcrumb-item @click="selectGroup(null)">
+                <n-icon><FolderOutline/></n-icon>
+                根目录
+              </n-breadcrumb-item>
+              <n-breadcrumb-item
+                  v-for="folder in breadcrumb"
+                  :key="folder.id"
+                  @click="selectGroup(folder.id!)"
+              >
+                {{ folder.name }}
+              </n-breadcrumb-item>
+            </n-breadcrumb>
+          </div>
 
           <!-- 全选栏 -->
           <div class="select-all-bar">
@@ -144,12 +172,12 @@
           <!-- 文件列表区 -->
           <div class="file-content-wrapper">
             <n-spin :show="loading" class="file-spin">
-              <div v-if="files.length === 0" class="empty-state">
+              <div v-if="!hasContent" class="empty-state">
                 <n-empty description="暂无数据">
                   <template #extra>
                     <p class="upload-hint">
                       <n-icon size="16"><CloudUploadOutline/></n-icon>
-                      支持拖拽文件到此区域批量上传
+                      支持拖拽文件或文件夹到此区域批量上传
                     </p>
                   </template>
                 </n-empty>
@@ -157,6 +185,29 @@
 
               <!-- 平铺视图 -->
               <div v-else-if="viewMode === 'grid'" class="file-grid">
+                <div
+                    v-for="folder in visibleFolders"
+                    :key="`folder-${folder.id}`"
+                    class="file-card folder-card"
+                    @dblclick="selectGroup(folder.id!)"
+                    @click="selectGroup(folder.id!)"
+                >
+                  <div class="file-preview">
+                    <div class="file-icon">
+                      <n-icon size="52" color="#f59e0b"><FolderOpenOutline/></n-icon>
+                    </div>
+                  </div>
+                  <div class="file-name" :title="folder.name">{{ folder.name }}</div>
+                  <div class="file-meta folder-meta">
+                    <span>{{ folder.childCount || 0 }} 个文件夹</span>
+                    <span>{{ folder.fileCount || 0 }} 个文件</span>
+                  </div>
+                  <div class="file-actions">
+                    <a @click.stop="handleGroupAction('edit', folder)">重命名</a>
+                    <span>|</span>
+                    <a class="danger-action" @click.stop="handleGroupAction('delete', folder)">删除</a>
+                  </div>
+                </div>
                 <div
                     v-for="file in files"
                     :key="file.id"
@@ -167,8 +218,8 @@
                     <n-checkbox :checked="selectedIds.includes(file.id!)" @update:checked="toggleSelect(file)"/>
                   </div>
                   <div class="file-preview" @click.stop="handlePreview(file)">
-                    <img v-if="isImage(file)" :src="file.url" alt=""/>
-                    <video v-else-if="isVideo(file)" :src="file.url"/>
+                    <img v-if="isImage(file)" :src="getFileAssetUrl(file)" alt=""/>
+                    <video v-else-if="isVideo(file)" :src="getFileAssetUrl(file)"/>
                     <div v-else class="file-icon">
                       <n-icon size="48" :color="getFileIconColor(file)">
                         <component :is="getFileIcon(file)"/>
@@ -191,6 +242,28 @@
               <!-- 列表视图 -->
               <div v-else class="file-list">
                 <div
+                    v-for="folder in visibleFolders"
+                    :key="`folder-${folder.id}`"
+                    class="file-row folder-row"
+                    @dblclick="selectGroup(folder.id!)"
+                    @click="selectGroup(folder.id!)"
+                >
+                  <div class="file-preview-small">
+                    <n-icon size="32" color="#f59e0b"><FolderOpenOutline/></n-icon>
+                  </div>
+                  <div class="file-info">
+                    <div class="file-name">{{ folder.name }}</div>
+                    <div class="file-meta">
+                      <span>{{ folder.childCount || 0 }} 个文件夹</span>
+                      <span>{{ folder.fileCount || 0 }} 个文件</span>
+                    </div>
+                  </div>
+                  <div class="file-actions" @click.stop>
+                    <n-button size="small" quaternary @click="handleGroupAction('edit', folder)">重命名</n-button>
+                    <n-button size="small" quaternary type="error" @click="handleGroupAction('delete', folder)">删除</n-button>
+                  </div>
+                </div>
+                <div
                     v-for="file in files"
                     :key="file.id"
                     :class="['file-row', { selected: selectedIds.includes(file.id!) }]"
@@ -200,7 +273,7 @@
                     <n-checkbox :checked="selectedIds.includes(file.id!)" @update:checked="toggleSelect(file)"/>
                   </div>
                   <div class="file-preview-small" @click.stop="handlePreview(file)">
-                    <img v-if="isImage(file)" :src="file.url" alt=""/>
+                    <img v-if="isImage(file)" :src="getFileAssetUrl(file)" alt=""/>
                     <n-icon v-else size="32" :color="getFileIconColor(file)">
                       <component :is="getFileIcon(file)"/>
                     </n-icon>
@@ -246,11 +319,42 @@
     </div>
 
     <!-- 各种弹窗 -->
-    <!-- 新增/编辑分组弹窗 -->
-    <n-modal v-model:show="showGroupModal" preset="dialog" :title="editingGroup ? '编辑分组' : '新增分组'">
+    <!-- 文件列表上传弹窗 -->
+    <n-modal v-model:show="showUploadModal" preset="dialog" title="上传文件">
+      <div class="upload-dialog">
+        <n-upload
+            :custom-request="handleUpload"
+            :show-file-list="false"
+            :multiple="true"
+            accept="*"
+        >
+          <n-button type="primary" block>
+            <template #icon><n-icon><DocumentOutline/></n-icon></template>
+            选择文件
+          </n-button>
+        </n-upload>
+        <n-upload
+            :custom-request="handleUpload"
+            :show-file-list="false"
+            :multiple="true"
+            :directory="true"
+        >
+          <n-button block>
+            <template #icon><n-icon><FolderOpenOutline/></n-icon></template>
+            选择文件夹
+          </n-button>
+        </n-upload>
+      </div>
+      <template #action>
+        <n-button @click="showUploadModal = false">关闭</n-button>
+      </template>
+    </n-modal>
+
+    <!-- 新增/编辑文件夹弹窗 -->
+    <n-modal v-model:show="showGroupModal" preset="dialog" :title="editingGroup ? '重命名文件夹' : '新建文件夹'">
       <n-form :model="groupForm">
-        <n-form-item label="分组名称" required>
-          <n-input v-model:value="groupForm.name" placeholder="请输入分组名称"/>
+        <n-form-item label="文件夹名称" required>
+          <n-input v-model:value="groupForm.name" placeholder="请输入文件夹名称"/>
         </n-form-item>
       </n-form>
       <template #action>
@@ -261,14 +365,14 @@
       </template>
     </n-modal>
 
-    <!-- 移动到分组弹窗 -->
-    <n-modal v-model:show="showMoveModal" preset="dialog" title="移动到分组">
+    <!-- 移动到文件夹弹窗 -->
+    <n-modal v-model:show="showMoveModal" preset="dialog" title="移动到文件夹">
       <n-form>
-        <n-form-item label="目标分组">
+        <n-form-item label="目标文件夹">
           <n-select
               v-model:value="moveTargetGroupId"
               :options="moveGroupOptions"
-              placeholder="请选择分组"
+              placeholder="请选择文件夹"
           />
         </n-form-item>
       </n-form>
@@ -329,16 +433,17 @@
 </template>
 
 <script setup lang="ts">
-import {ref, reactive, computed, onMounted, watch, h} from 'vue'
+import {ref, reactive, computed, onMounted, watch} from 'vue'
 import {useRoute} from 'vue-router'
 import {useMessage, useDialog, type UploadCustomRequestOptions} from 'naive-ui'
 import {
   CloudUploadOutline, SearchOutline, ListOutline, GridOutline, FolderOutline,
   AddOutline, EllipsisHorizontalOutline, DocumentOutline, DocumentTextOutline,
-  ImageOutline, VideocamOutline, MusicalNotesOutline, CodeSlashOutline
+  ImageOutline, VideocamOutline, CodeSlashOutline, FolderOpenOutline
 } from '@vicons/ionicons5'
 import {fileApi, fileGroupApi, type SysFile, type SysFileGroup} from '@/api/system'
 import {useUserStore} from '@/stores/user'
+import {normalizeApiAssetUrl} from '@/config/app'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -347,6 +452,15 @@ const userStore = useUserStore()
 const hasPermission = (permission: string) => userStore.hasPermission(permission)
 
 type FileCategory = 'image' | 'video' | 'file'
+type UploadFileWithPath = File & { webkitRelativePath?: string; relativePath?: string }
+type DropEntry = {
+  name: string
+  isFile: boolean
+  isDirectory: boolean
+  file?: (callback: (file: File) => void) => void
+  createReader?: () => { readEntries: (callback: (entries: DropEntry[]) => void) => void }
+}
+type DropItem = DataTransferItem & { webkitGetAsEntry?: () => DropEntry | null }
 
 const props = defineProps<{
   category?: FileCategory
@@ -385,9 +499,11 @@ const uploadAccept = computed(() => {
 
 // 分组相关
 const groups = ref<SysFileGroup[]>([])
+const allGroups = ref<SysFileGroup[]>([])
+const breadcrumb = ref<SysFileGroup[]>([])
 const ungroupedCount = ref(0)
 const categoryAllCount = ref(0)
-const activeGroupId = ref<number | null>(-1) // -1 表示全部
+const activeGroupId = ref<number | null>(null)
 
 // 视图模式
 const viewMode = ref<'list' | 'grid'>('grid')
@@ -397,6 +513,8 @@ const searchName = ref('')
 
 // 文件列表
 const files = ref<SysFile[]>([])
+const visibleFolders = computed(() => activeGroupId.value === -1 ? [] : groups.value)
+const hasContent = computed(() => files.value.length > 0 || visibleFolders.value.length > 0)
 const loading = ref(false)
 const selectedIds = ref<number[]>([])
 const pagination = reactive({
@@ -404,12 +522,12 @@ const pagination = reactive({
   pageSize: 20,
   itemCount: 0
 })
-const gotoPage = ref<number | null>(1)
 
 // 分组弹窗
 const showGroupModal = ref(false)
 const editingGroup = ref<SysFileGroup | null>(null)
 const groupForm = reactive({name: ''})
+const showUploadModal = ref(false)
 
 // 移动弹窗
 const showMoveModal = ref(false)
@@ -452,8 +570,8 @@ const groupMenuOptions = [
 // 移动分组选项
 const moveGroupOptions = computed(() => {
   return [
-    {label: '未分组', value: null},
-    ...groups.value.map(g => ({label: g.name, value: g.id}))
+    {label: '根目录', value: null},
+    ...flattenFolderOptions(allGroups.value)
   ]
 })
 
@@ -464,10 +582,17 @@ const isIndeterminate = computed(() => selectedIds.value.length > 0 && selectedI
 // 加载分组
 async function loadGroups() {
   try {
-    const res = await fileGroupApi.list({groupScope: activeType.value})
-    groups.value = res.groups
-    ungroupedCount.value = res.ungroupedCount
-    categoryAllCount.value = Number(res.allCount || 0)
+    const res = await fileGroupApi.children({
+      groupScope: activeType.value,
+      parentId: activeGroupId.value === -1 ? null : activeGroupId.value
+    })
+    const allRes = await fileGroupApi.list({groupScope: activeType.value})
+    const breadcrumbRes = await fileGroupApi.breadcrumb(activeGroupId.value === -1 ? null : activeGroupId.value)
+    groups.value = res
+    allGroups.value = allRes.groups
+    breadcrumb.value = breadcrumbRes
+    ungroupedCount.value = allRes.ungroupedCount
+    categoryAllCount.value = Number(allRes.allCount || 0)
   } catch (error) {
     // 错误已在拦截器处理
   }
@@ -507,6 +632,7 @@ function handlePageSizeChange(pageSize: number) {
 function selectGroup(groupId: number | null) {
   activeGroupId.value = groupId
   pagination.page = 1
+  loadGroups()
   loadFiles()
 }
 
@@ -544,7 +670,7 @@ function handleGroupAction(key: string, group: SysFileGroup) {
   } else if (key === 'delete') {
     dialog.warning({
       title: '提示',
-      content: `确定要删除分组"${group.name}"吗？分组内的文件将移动到"未分组"。`,
+      content: `确定要删除文件夹"${group.name}"吗？文件夹内的文件将移动到上级目录。`,
       positiveText: '确定',
       negativeText: '取消',
       onPositiveClick: async () => {
@@ -553,7 +679,7 @@ function handleGroupAction(key: string, group: SysFileGroup) {
           message.success('删除成功')
           loadGroups()
           if (activeGroupId.value === group.id) {
-            selectGroup(-1)
+            selectGroup(group.parentId ?? null)
           }
         } catch (error) {
           // 错误已在拦截器处理
@@ -567,10 +693,16 @@ function showGroupMenu(e: MouseEvent, group: SysFileGroup) {
   // 右键菜单暂不实现，使用下拉菜单
 }
 
+function openCreateFolderModal() {
+  editingGroup.value = null
+  groupForm.name = ''
+  showGroupModal.value = true
+}
+
 // 保存分组
 async function handleSaveGroup() {
   if (!groupForm.name.trim()) {
-    message.warning('请输入分组名称')
+    message.warning('请输入文件夹名称')
     return
   }
   try {
@@ -578,7 +710,11 @@ async function handleSaveGroup() {
       await fileGroupApi.update({id: editingGroup.value.id, name: groupForm.name, groupScope: activeType.value})
       message.success('更新成功')
     } else {
-      await fileGroupApi.create({name: groupForm.name, groupScope: activeType.value})
+      await fileGroupApi.create({
+        name: groupForm.name,
+        groupScope: activeType.value,
+        parentId: activeGroupId.value === -1 ? null : activeGroupId.value
+      })
       message.success('创建成功')
     }
     showGroupModal.value = false
@@ -607,13 +743,34 @@ async function handleUpload(options: UploadCustomRequestOptions) {
     return
   }
   try {
-    await fileApi.upload(rawFile, undefined, getUploadGroupId(), activeType.value)
+    await fileApi.upload(rawFile, undefined, getUploadGroupId(), activeType.value, file.fullPath || undefined)
     message.success('上传成功')
     onFinish()
     loadFiles()
     loadGroups()
   } catch (error) {
     onError()
+  }
+}
+
+async function uploadFilesToCurrentFolder(uploadFiles: File[]) {
+  const uploadGroupId = getUploadGroupId()
+  let successCount = 0
+  for (const uploadFile of uploadFiles) {
+    if (!validateUploadFile(uploadFile)) {
+      continue
+    }
+    try {
+      await fileApi.upload(uploadFile, undefined, uploadGroupId, activeType.value, getRelativePath(uploadFile))
+      successCount++
+    } catch (error) {
+      message.error(`${uploadFile.name} 上传失败`)
+    }
+  }
+  if (successCount > 0) {
+    message.success(`已上传 ${successCount} 个文件`)
+    loadFiles()
+    loadGroups()
   }
 }
 
@@ -633,22 +790,51 @@ function handleDragLeave() {
 async function handleDrop(e: DragEvent) {
   isDragging.value = false
   dragCounter = 0
-  const droppedFiles = e.dataTransfer?.files
-  if (!droppedFiles || droppedFiles.length === 0) return
-  const uploadGroupId = getUploadGroupId()
-  for (let i = 0; i < droppedFiles.length; i++) {
-    if (!validateUploadFile(droppedFiles[i])) {
-      continue
-    }
-    try {
-      await fileApi.upload(droppedFiles[i], undefined, uploadGroupId, activeType.value)
-      message.success(`${droppedFiles[i].name} 上传成功`)
-    } catch (error) {
-      message.error(`${droppedFiles[i].name} 上传失败`)
-    }
+  const droppedFiles = await collectDroppedFiles(e)
+  if (droppedFiles.length === 0) return
+  await uploadFilesToCurrentFolder(droppedFiles)
+}
+
+function getRelativePath(file: File): string {
+  const fileWithPath = file as UploadFileWithPath
+  return fileWithPath.webkitRelativePath || fileWithPath.relativePath || file.name
+}
+
+async function collectDroppedFiles(event: DragEvent): Promise<UploadFileWithPath[]> {
+  const items = Array.from(event.dataTransfer?.items || []) as DropItem[]
+  const entryItems = items
+      .map(item => item.webkitGetAsEntry?.())
+      .filter((entry): entry is DropEntry => !!entry)
+  if (entryItems.length === 0) {
+    return Array.from(event.dataTransfer?.files || []) as UploadFileWithPath[]
   }
-  loadFiles()
-  loadGroups()
+  const files: UploadFileWithPath[] = []
+  for (const entry of entryItems) {
+    files.push(...await readDropEntry(entry, ''))
+  }
+  return files
+}
+
+async function readDropEntry(entry: DropEntry, parentPath: string): Promise<UploadFileWithPath[]> {
+  const currentPath = parentPath ? `${parentPath}/${entry.name}` : entry.name
+  if (entry.isFile && entry.file) {
+    return new Promise(resolve => {
+      entry.file!(file => {
+        const fileWithPath = file as UploadFileWithPath
+        fileWithPath.relativePath = currentPath
+        resolve([fileWithPath])
+      })
+    })
+  }
+  if (!entry.isDirectory || !entry.createReader) {
+    return []
+  }
+  const reader = entry.createReader()
+  const children = await new Promise<DropEntry[]>(resolve => {
+    reader.readEntries(resolve)
+  })
+  const nested = await Promise.all(children.map(child => readDropEntry(child, currentPath)))
+  return nested.flat()
 }
 
 function validateUploadFile(file: File): boolean {
@@ -675,8 +861,8 @@ async function handlePreview(file: SysFile) {
   // PDF、视频、音频等需要内嵌预览的文件，强制使用后端预览接口（避免云存储的attachment头导致下载）
   if (isPdf(file) || isVideo(file) || isAudio(file)) {
     previewUrl.value = fileApi.getPreviewUrl(file.id!)
-  } else if (file.url && (file.url.startsWith('http') || file.url.startsWith('/'))) {
-    previewUrl.value = file.url
+  } else if (file.url) {
+    previewUrl.value = getFileAssetUrl(file)
   } else {
     previewUrl.value = fileApi.getPreviewUrl(file.id!)
   }
@@ -791,10 +977,18 @@ function isOffice(file: SysFile | null): boolean { const s = file?.fileSuffix?.t
 function isText(file: SysFile | null): boolean { if (!file) return false; const textTypes = ['text/', 'application/json', 'application/xml', 'application/javascript']; const s = file.fileSuffix?.toLowerCase() || ''; return textTypes.some(t => file.fileType?.startsWith(t)) || ['.txt', '.md', '.json', '.xml', '.yaml', '.yml', '.ini', '.conf', '.cfg', '.properties', '.js', '.ts', '.vue', '.jsx', '.tsx', '.css', '.scss', '.less', '.html', '.htm', '.java', '.py', '.go', '.rs', '.c', '.cpp', '.h', '.hpp', '.cs', '.php', '.rb', '.swift', '.kt', '.sql', '.sh', '.bat', '.ps1', '.log', '.csv'].includes(s) }
 function isPreviewable(file: SysFile): boolean { return isImage(file) || isVideo(file) || isAudio(file) || isPdf(file) || isText(file) || isOffice(file) }
 function getCodeLanguage(file: SysFile | null): string { const s = file?.fileSuffix?.toLowerCase() || ''; const m: any = {'.js': 'javascript', '.ts': 'typescript', '.vue': 'vue', '.json': 'json', '.java': 'java', '.py': 'python', '.md': 'markdown'}; return m[s] || 'text' }
-function getOfficePreviewUrl(file: SysFile | null): string { if (!file) return ''; return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.url)}` }
+function getFileAssetUrl(file: SysFile): string { return normalizeApiAssetUrl(file.url) || fileApi.getPreviewUrl(file.id!) }
+function getOfficePreviewUrl(file: SysFile | null): string { if (!file) return ''; return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(getFileAssetUrl(file))}` }
 function getFileIcon(file: SysFile) { const s = file.fileSuffix?.toLowerCase() || ''; if (['.doc', '.docx', '.xls', '.xlsx', '.pdf', '.txt', '.md'].includes(s)) return DocumentTextOutline; if (['.js', '.ts', '.vue'].includes(s)) return CodeSlashOutline; if (file.fileType?.startsWith('image/')) return ImageOutline; return DocumentOutline }
 function getFileIconColor(file: SysFile) { const s = file.fileSuffix?.toLowerCase() || ''; if (['.doc', '.docx'].includes(s)) return '#2b579a'; if (['.xls', '.xlsx'].includes(s)) return '#217346'; if (['.pdf'].includes(s)) return '#f40f02'; return '#9ca3af' }
 function formatFileSize(bytes: number): string { if (bytes === 0) return '0 B'; const k = 1024; const s = ['B', 'KB', 'MB', 'GB', 'TB']; const i = Math.floor(Math.log(bytes) / Math.log(k)); return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + s[i] }
+
+function flattenFolderOptions(items: SysFileGroup[]) {
+  return items.map(item => ({
+    label: `${'　'.repeat(item.level || 0)}${item.name}`,
+    value: item.id
+  }))
+}
 
 onMounted(() => {
   loadGroups()
@@ -807,7 +1001,7 @@ watch(
     const nextCategory = resolveCategory()
     if (activeType.value !== nextCategory) {
       activeType.value = nextCategory
-      activeGroupId.value = -1
+      activeGroupId.value = null
       pagination.page = 1
       loadGroups()
       loadFiles()
@@ -977,6 +1171,17 @@ watch(
 
 .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 8px; }
 
+.upload-dialog {
+  display: grid;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.upload-dialog :deep(.n-upload-trigger),
+.upload-dialog :deep(.n-button) {
+  width: 100%;
+}
+
 .file-search-input {
   width: 200px;
 }
@@ -991,6 +1196,12 @@ watch(
   flex-direction: column;
   position: relative;
   overflow: hidden;
+}
+
+.folder-breadcrumb {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--n-border-color);
+  background: var(--n-color);
 }
 
 .select-all-bar {
@@ -1030,6 +1241,12 @@ watch(
 
 .file-card:hover { border-color: var(--n-primary-color); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 .file-card.selected { border-color: var(--n-primary-color); background: var(--n-primary-color-hover); }
+.folder-card {
+  background: color-mix(in srgb, var(--n-warning-color) 6%, var(--n-color));
+}
+.folder-card:hover {
+  border-color: #f59e0b;
+}
 
 .file-card .file-checkbox { position: absolute; top: 8px; left: 8px; z-index: 1; }
 .file-preview { width: 100%; height: 100px; display: flex; align-items: center; justify-content: center; background: var(--n-hover-color); border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
@@ -1052,6 +1269,14 @@ watch(
 .file-preview-small img { width: 100%; height: 100%; object-fit: cover; }
 .file-info { flex: 1; min-width: 0; }
 .file-meta { display: flex; gap: 12px; font-size: 12px; color: var(--n-text-color-3); margin-top: 2px; }
+.folder-meta {
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+.folder-row {
+  background: color-mix(in srgb, var(--n-warning-color) 5%, var(--n-color));
+}
 
 /* 分页 */
 .pagination {
@@ -1140,7 +1365,7 @@ watch(
 
   .toolbar-left {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
 
@@ -1185,6 +1410,12 @@ watch(
 
   .select-all-bar {
     padding: 8px 12px;
+  }
+
+  .folder-breadcrumb {
+    padding: 8px 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .file-content-wrapper {

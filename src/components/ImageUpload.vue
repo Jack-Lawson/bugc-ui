@@ -19,7 +19,7 @@
 import { ref, computed, watch } from 'vue'
 import { type UploadFileInfo } from 'naive-ui'
 import { useUserStore } from '@/stores/user'
-import { buildApiUrl } from '@/config/app'
+import { buildApiUrl, normalizeApiAssetUrl } from '@/config/app'
 
 const props = defineProps<{
   modelValue?: string
@@ -46,7 +46,7 @@ watch(() => props.modelValue, (val) => {
       id: 'default',
       name: 'image',
       status: 'finished',
-      url: val
+      url: normalizeApiAssetUrl(val)
     }]
   } else if (!val) {
     fileList.value = []
@@ -64,8 +64,9 @@ function handleFinish({ file, event }: { file: UploadFileInfo, event?: ProgressE
       const url = typeof data === 'string' ? data : (data.url || data.filePath)
       if (url) {
         console.log('图片URL:', url)
-        emit('update:modelValue', url)
-        file.url = url
+        const assetUrl = normalizeApiAssetUrl(url)
+        emit('update:modelValue', assetUrl)
+        file.url = assetUrl
         file.status = 'finished'
       }
     }

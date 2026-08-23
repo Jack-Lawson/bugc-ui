@@ -296,8 +296,12 @@ export interface SysFileGroup {
   id?: number
   name: string
   sort?: number
+  parentId?: number | null
+  path?: string
+  level?: number
   groupScope?: string
   fileCount?: number
+  childCount?: number
   createBy?: string
   createTime?: string
 }
@@ -309,8 +313,16 @@ export interface FileGroupListResult {
 }
 
 export const fileGroupApi = {
-  list(params?: { groupScope?: string }): Promise<FileGroupListResult> {
+  list(params?: { groupScope?: string; parentId?: number | null }): Promise<FileGroupListResult> {
     return request({ url: '/sys/file-group/list', method: 'get', params })
+  },
+
+  children(params?: { groupScope?: string; parentId?: number | null }): Promise<SysFileGroup[]> {
+    return request({ url: '/sys/file-group/children', method: 'get', params })
+  },
+
+  breadcrumb(id?: number | null): Promise<SysFileGroup[]> {
+    return request({ url: '/sys/file-group/breadcrumb', method: 'get', params: { id } })
   },
 
   detail(id: number): Promise<SysFileGroup> {
@@ -368,7 +380,7 @@ export const fileApi = {
     return request({ url: `/sys/file/${id}`, method: 'get' })
   },
   
-  upload(file: File, path?: string, groupId?: number | null, fileScope?: string): Promise<SysFile> {
+  upload(file: File, path?: string, groupId?: number | null, fileScope?: string, relativePath?: string): Promise<SysFile> {
     const formData = new FormData()
     formData.append('file', file)
     if (path) {
@@ -379,6 +391,9 @@ export const fileApi = {
     }
     if (fileScope) {
       formData.append('fileScope', fileScope)
+    }
+    if (relativePath) {
+      formData.append('relativePath', relativePath)
     }
     return request({
       url: '/sys/file/upload',

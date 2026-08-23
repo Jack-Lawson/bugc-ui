@@ -168,6 +168,18 @@ export function buildApiUrl(path: string) {
   return joinUrl(apiConfig.baseUrl, path)
 }
 
+export function normalizeApiAssetUrl(url?: string | null) {
+  if (!url) return ''
+  if (/^(https?:)?\/\//.test(url) || /^(data|blob):/.test(url)) return url
+  if (url.startsWith(`${apiConfig.baseUrl.replace(/\/+$/, '')}/`)) return url
+  if (url.startsWith('/api/')) {
+    return apiConfig.baseUrl === '/api'
+      ? url
+      : joinUrl(apiConfig.baseUrl, url.replace(/^\/api\/+/, ''))
+  }
+  return buildApiUrl(`/files/${url}`)
+}
+
 export function getWebSocketBaseUrl() {
   if (websocketConfig.baseUrl) return websocketConfig.baseUrl
 

@@ -17,18 +17,23 @@ app.use(pinia)
 app.use(router)
 app.use(naive)
 
-// 预加载加密配置
-fetchCryptoConfig()
+async function bootstrap() {
+  const siteStore = useSiteStore()
 
-// 预加载站点配置
-const siteStore = useSiteStore()
-siteStore.loadConfig().then(() => {
+  // 首屏品牌依赖后端站点配置，先加载再挂载，避免默认 Logo 闪现。
+  await Promise.allSettled([
+    fetchCryptoConfig(),
+    siteStore.loadConfig()
+  ])
+
   // 根据配置动态启用前端禁止调试
   if (siteStore.disableDevtool) {
     import('disable-devtool').then((DisableDevtool) => {
       DisableDevtool.default()
     })
   }
-})
 
-app.mount('#app')
+  app.mount('#app')
+}
+
+bootstrap()
