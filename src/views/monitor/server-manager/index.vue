@@ -4,19 +4,19 @@
     <n-card class="toolbar-card">
       <div class="toolbar">
         <div class="toolbar-left">
-          <n-input v-model:value="searchName" placeholder="搜索服务器名称" clearable style="width: 200px">
+          <n-input v-model:value="searchName" class="toolbar-search" placeholder="搜索服务器名称" clearable>
             <template #prefix>
               <n-icon><SearchOutline /></n-icon>
             </template>
           </n-input>
-          <n-select v-model:value="searchStatus" placeholder="状态" clearable style="width: 120px" :options="statusOptions" />
-          <n-button type="primary" @click="loadServers">
+          <n-select v-model:value="searchStatus" class="toolbar-status" placeholder="状态" clearable :options="statusOptions" />
+          <n-button type="primary" class="toolbar-action" @click="loadServers">
             <template #icon><n-icon><SearchOutline /></n-icon></template>
             搜索
           </n-button>
         </div>
         <div class="toolbar-right">
-          <n-button type="primary" @click="handleAdd">
+          <n-button type="primary" class="toolbar-action" @click="handleAdd">
             <template #icon><n-icon><AddOutline /></n-icon></template>
             新增服务器
           </n-button>
@@ -106,7 +106,7 @@
     </div>
 
     <!-- 新增/编辑弹窗 -->
-    <n-modal v-model:show="showModal" preset="card" :title="editingServer ? '编辑服务器' : '新增服务器'" style="width: 600px">
+    <n-modal v-model:show="showModal" preset="card" :title="editingServer ? '编辑服务器' : '新增服务器'" style="width: min(600px, 96vw)">
       <n-form ref="formRef" :model="formData" :rules="rules" label-placement="left" label-width="100">
         <n-form-item label="服务器名称" path="name">
           <n-input v-model:value="formData.name" placeholder="请输入服务器名称" />
@@ -727,11 +727,30 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
 
 .toolbar-left {
   display: flex;
+  flex: 1;
   gap: 12px;
+  min-width: 0;
+}
+
+.toolbar-search {
+  width: 220px;
+}
+
+.toolbar-status {
+  width: 130px;
+}
+
+.toolbar-action {
+  flex-shrink: 0;
+}
+
+.toolbar-right {
+  flex-shrink: 0;
 }
 
 .server-grid {
@@ -753,12 +772,44 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
+  .toolbar {
+    display: block;
+  }
+
+  .toolbar-left {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 132px;
+    gap: 10px;
+  }
+
+  .toolbar-search,
+  .toolbar-status {
+    width: 100%;
+  }
+
+  .toolbar-left .toolbar-action {
+    grid-column: 1 / -1;
+  }
+
+  .toolbar-right {
+    margin-top: 10px;
+  }
+
+  .toolbar-action,
+  .toolbar-right :deep(.n-button) {
+    width: 100%;
+  }
+
   .server-grid {
     grid-template-columns: 1fr;
   }
 
   .server-card {
     max-width: none;
+  }
+
+  .server-actions :deep(.n-button) {
+    min-width: 84px;
   }
 }
 
@@ -788,18 +839,21 @@ onUnmounted(() => {
 
 .server-info {
   flex: 1;
+  min-width: 0;
 }
 
 .server-name {
   font-size: 16px;
   font-weight: 600;
   color: #111827;
+  overflow-wrap: anywhere;
 }
 
 .server-host {
   font-size: 13px;
   color: #6b7280;
   font-family: monospace;
+  overflow-wrap: anywhere;
 }
 
 .server-status-tag {
@@ -831,6 +885,8 @@ onUnmounted(() => {
 
   .value {
     color: #374151;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 }
 
@@ -903,6 +959,8 @@ onUnmounted(() => {
   position: relative;
   width: 900px;
   height: 600px;
+  max-width: 96vw;
+  max-height: 86vh;
   background: #fff;
   border-radius: 8px;
   display: flex;

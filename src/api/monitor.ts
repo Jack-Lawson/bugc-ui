@@ -128,7 +128,16 @@ export const jobApi = {
   run(id: number): Promise<void> {
     return request({ url: `/monitor/job/run/${id}`, method: 'post' })
   },
-  logPage(params: { page: number; pageSize: number; jobName?: string; jobGroup?: string; status?: number }): Promise<PageResult<SysJobLog>> {
+  logPage(params: {
+    page: number
+    pageSize: number
+    jobName?: string
+    jobGroup?: string
+    invokeTarget?: string
+    status?: number
+    startTime?: string
+    endTime?: string
+  }): Promise<PageResult<SysJobLog>> {
     return request({ url: '/monitor/job/log/page', method: 'get', params })
   },
   logStatistics(): Promise<{ totalCount: number; successCount: number; failCount: number; dailyStats: Array<{ exec_date: string; success_count: number; fail_count: number }> }> {

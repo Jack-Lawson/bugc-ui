@@ -23,7 +23,7 @@
             </div>
           </n-card>
         </div>
-        <n-grid :cols="2" :x-gap="16" class="stats-charts">
+        <n-grid responsive="screen" cols="1 m:2" :x-gap="16" :y-gap="16" class="stats-charts">
           <n-gi>
             <n-card title="成功/失败比例" size="small" :bordered="false" content-style="background: transparent">
               <div ref="pieChartRef" class="chart-box"></div>
@@ -38,17 +38,17 @@
       </div>
 
       <div class="search-form">
-        <n-form inline :model="searchForm" label-placement="left">
-          <n-form-item label="任务名称">
+        <n-form inline :model="searchForm" label-placement="left" class="job-search-inline">
+          <n-form-item label="任务名称" class="search-form-item">
             <n-input v-model:value="searchForm.jobName" placeholder="请输入任务名称" clearable />
           </n-form-item>
-          <n-form-item label="任务组名">
+          <n-form-item label="任务组名" class="search-form-item">
             <n-input v-model:value="searchForm.jobGroup" placeholder="请输入任务组名" clearable />
           </n-form-item>
-          <n-form-item label="状态">
-            <n-select v-model:value="searchForm.status" placeholder="请选择状态" :options="statusOptions" clearable style="width: 120px" />
+          <n-form-item label="状态" class="search-form-item search-form-item--small">
+            <n-select v-model:value="searchForm.status" placeholder="请选择状态" :options="statusOptions" clearable />
           </n-form-item>
-          <n-form-item>
+          <n-form-item class="search-actions">
             <n-space>
               <n-button type="primary" @click="handleSearch">
                 <template #icon><n-icon><SearchOutline /></n-icon></template>
@@ -153,7 +153,38 @@
       </template>
     </n-modal>
 
-    <n-modal v-model:show="showLogModal" :title="logModalTitle" preset="card" style="width: 1000px">
+    <n-modal v-model:show="showLogModal" :title="logModalTitle" preset="card" style="width: min(1180px, 96vw)">
+      <div class="log-search-form">
+        <n-form inline :model="logSearchForm" label-placement="left" class="job-search-inline">
+          <n-form-item label="任务名称" class="search-form-item">
+            <n-input v-model:value="logSearchForm.jobName" placeholder="请输入任务名称" clearable />
+          </n-form-item>
+          <n-form-item label="任务组名" class="search-form-item">
+            <n-input v-model:value="logSearchForm.jobGroup" placeholder="请输入任务组名" clearable />
+          </n-form-item>
+          <n-form-item label="调用目标" class="search-form-item search-form-item--wide">
+            <n-input v-model:value="logSearchForm.invokeTarget" placeholder="请输入调用目标" clearable />
+          </n-form-item>
+          <n-form-item label="状态" class="search-form-item search-form-item--small">
+            <n-select v-model:value="logSearchForm.status" placeholder="请选择" :options="logStatusOptions" clearable />
+          </n-form-item>
+          <n-form-item label="执行时间" class="search-form-item search-form-item--range">
+            <n-date-picker v-model:value="logDateRange" type="datetimerange" clearable />
+          </n-form-item>
+          <n-form-item class="search-actions">
+            <n-space>
+              <n-button type="primary" @click="handleLogSearch">
+                <template #icon><n-icon><SearchOutline /></n-icon></template>
+                搜索
+              </n-button>
+              <n-button @click="handleLogReset">
+                <template #icon><n-icon><RefreshOutline /></n-icon></template>
+                重置
+              </n-button>
+            </n-space>
+          </n-form-item>
+        </n-form>
+      </div>
       <n-data-table
         :columns="logColumns"
         :data="logData"
@@ -196,6 +227,7 @@ const hasPermission = (permission: string) => userStore.hasPermission(permission
 
 const searchForm = reactive({ jobName: '', jobGroup: '', status: null as number | null })
 const statusOptions = [{ label: '正常', value: 1 }, { label: '暂停', value: 0 }]
+const logStatusOptions = [{ label: '成功', value: 0 }, { label: '失败', value: 1 }]
 const misfireOptions = [{ label: '立即执行', value: 1 }, { label: '执行一次', value: 2 }, { label: '放弃执行', value: 3 }]
 
 // 常用 cron 表达式（Quartz 格式：秒 分 时 日 月 周）
@@ -266,6 +298,13 @@ const rules: FormRules = {
 // 日志
 const showLogModal = ref(false)
 const logFilter = ref<{ jobName: string; jobGroup: string } | null>(null)
+const logSearchForm = reactive({
+  jobName: '',
+  jobGroup: '',
+  invokeTarget: '',
+  status: null as number | null
+})
+const logDateRange = ref<[number, number] | null>(null)
 const logModalTitle = computed(() =>
   logFilter.value ? `调度日志 - ${logFilter.value.jobName}` : '调度日志'
 )
@@ -275,6 +314,7 @@ const logPagination = reactive({ page: 1, pageSize: 10, itemCount: 0, showSizePi
 const logColumns: DataTableColumns<SysJobLog> = [
   { title: 'ID', key: 'id', width: 80 },
   { title: '任务名称', key: 'jobName', width: 120 },
+  { title: '任务组名', key: 'jobGroup', width: 100 },
   { title: '调用目标', key: 'invokeTarget', ellipsis: { tooltip: true } },
   { title: '日志信息', key: 'jobMessage', width: 100 },
   { title: '状态', key: 'status', width: 80, render(row) {
@@ -284,9 +324,23 @@ const logColumns: DataTableColumns<SysJobLog> = [
   { title: '结束时间', key: 'stopTime', width: 180 }
 ]
 
+function formatDateTime(ms: number) {
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`
+}
+
+function resetLogSearchForm() {
+  logSearchForm.jobName = logFilter.value?.jobName || ''
+  logSearchForm.jobGroup = logFilter.value?.jobGroup || ''
+  logSearchForm.invokeTarget = ''
+  logSearchForm.status = null
+  logDateRange.value = null
+}
+
 watch(showLogModal, (val) => {
   if (val) {
     logPagination.page = 1
+    resetLogSearchForm()
     loadLogData()
   } else {
     loadStats()
@@ -360,11 +414,18 @@ function renderCharts() {
 async function loadLogData() {
   logLoading.value = true
   try {
+    const [startTime, endTime] = logDateRange.value
+      ? [formatDateTime(logDateRange.value[0]), formatDateTime(logDateRange.value[1])]
+      : [undefined, undefined]
     const res = await jobApi.logPage({
       page: logPagination.page,
       pageSize: logPagination.pageSize,
-      jobName: logFilter.value?.jobName,
-      jobGroup: logFilter.value?.jobGroup
+      jobName: logSearchForm.jobName || undefined,
+      jobGroup: logSearchForm.jobGroup || undefined,
+      invokeTarget: logSearchForm.invokeTarget || undefined,
+      status: logSearchForm.status ?? undefined,
+      startTime,
+      endTime
     })
     logData.value = res.list
     logPagination.itemCount = res.total
@@ -383,6 +444,11 @@ function handleShowAllLogs() {
 
 function handleSearch() { pagination.page = 1; loadData() }
 function handleReset() { searchForm.jobName = ''; searchForm.jobGroup = ''; searchForm.status = null; handleSearch() }
+function handleLogSearch() { logPagination.page = 1; loadLogData() }
+function handleLogReset() {
+  resetLogSearchForm()
+  handleLogSearch()
+}
 function handlePageChange(page: number) { pagination.page = page; loadData() }
 function handlePageSizeChange(pageSize: number) { pagination.pageSize = pageSize; pagination.page = 1; loadData() }
 function handleLogPageChange(page: number) { logPagination.page = page; loadLogData() }
@@ -436,13 +502,20 @@ async function handleRun(row: SysJob) {
   message.success('执行成功')
 }
 
+function resizeCharts() {
+  pieChart?.resize()
+  barChart?.resize()
+}
+
 onMounted(async () => {
   loadData()
   await nextTick()
   loadStats()
+  window.addEventListener('resize', resizeCharts)
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', resizeCharts)
   pieChart?.dispose()
   barChart?.dispose()
 })
@@ -492,5 +565,96 @@ onUnmounted(() => {
 
 .page-layout {
   min-height: calc(100vh - 160px);
+}
+
+.log-search-form {
+  margin-bottom: 12px;
+}
+
+.job-search-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+}
+
+.search-form-item {
+  width: 220px;
+}
+
+.search-form-item--small {
+  width: 150px;
+}
+
+.search-form-item--wide {
+  width: 260px;
+}
+
+.search-form-item--range {
+  width: 330px;
+}
+
+.search-form-item :deep(.n-form-item-blank),
+.search-form-item :deep(.n-input),
+.search-form-item :deep(.n-select),
+.search-form-item :deep(.n-date-picker) {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .stats-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .stat-card :deep(.n-card__content) {
+    padding: 14px 16px;
+  }
+
+  .stat-value {
+    font-size: 22px;
+  }
+
+  .chart-box {
+    height: 240px;
+  }
+
+  .search-form,
+  .log-search-form {
+    overflow: hidden;
+  }
+
+  .job-search-inline {
+    display: block;
+  }
+
+  .search-form-item,
+  .search-form-item--small,
+  .search-form-item--wide,
+  .search-form-item--range {
+    width: 100%;
+  }
+
+  .search-actions {
+    width: 100%;
+  }
+
+  .search-actions :deep(.n-space) {
+    width: 100%;
+  }
+
+  .search-actions :deep(.n-button) {
+    flex: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-box {
+    height: 220px;
+  }
 }
 </style>
