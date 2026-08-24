@@ -4,7 +4,7 @@
       <n-card class="file-list-card" size="small">
         <template #header>
           <div class="group-strip">
-            <div class="group-strip-title">{{ categoryTitle }}文件夹</div>
+            <div class="group-strip-title">{{ organizerTitle }}</div>
             <div class="group-list-wrapper">
               <div class="group-list">
                 <div
@@ -29,7 +29,7 @@
                     </div>
                     <span class="group-count">{{ ungroupedCount }}</span>
                   </div>
-                  <span class="group-name">根目录</span>
+                  <span class="group-name">{{ ungroupedLabel }}</span>
                 </div>
                 <div
                     v-for="group in groups"
@@ -40,7 +40,7 @@
                 >
                   <div class="group-card-top">
                     <div class="group-icon">
-                      <n-icon><FolderOpenOutline/></n-icon>
+                      <n-icon><component :is="organizerItemIcon"/></n-icon>
                     </div>
                     <div class="group-card-actions" @click.stop>
                       <span class="group-count">{{ group.fileCount || 0 }}</span>
@@ -61,7 +61,7 @@
                       <n-icon><AddOutline/></n-icon>
                     </div>
                   </div>
-                  <span class="group-name">新建文件夹</span>
+                  <span class="group-name">{{ createOrganizerText }}</span>
                 </button>
               </div>
             </div>
@@ -70,15 +70,15 @@
             <div class="toolbar-left">
               <n-button v-if="hasPermission('sys:file:upload')" @click="openCreateFolderModal">
                 <template #icon><n-icon><AddOutline/></n-icon></template>
-                新建
+                {{ createOrganizerText }}
               </n-button>
               <n-button
-                  v-if="hasPermission('sys:file:upload') && activeType === 'file'"
+                  v-if="hasPermission('sys:file:upload') && isFolderMode"
                   type="primary"
                   @click="showUploadModal = true"
               >
                 <template #icon><n-icon><CloudUploadOutline/></n-icon></template>
-                上传文件
+                {{ uploadModalTitle }}
               </n-button>
               <n-upload
                   v-else-if="hasPermission('sys:file:upload')"
@@ -89,7 +89,7 @@
               >
                 <n-button type="primary">
                   <template #icon><n-icon><CloudUploadOutline/></n-icon></template>
-                  上传文件
+                  {{ uploadModalTitle }}
                 </n-button>
               </n-upload>
               <n-button :disabled="selectedIds.length === 0" @click="handleBatchDelete">
@@ -133,13 +133,13 @@
             <div v-if="isDragging" class="drag-overlay">
               <div class="drag-content">
                 <n-icon size="64" color="#fff"><CloudUploadOutline/></n-icon>
-                <h3>松开鼠标上传文件</h3>
-                <p>支持多文件或文件夹同时上传</p>
+                <h3>{{ dragUploadTitle }}</h3>
+                <p>{{ dragUploadHint }}</p>
               </div>
             </div>
           </Transition>
 
-          <div class="folder-breadcrumb">
+          <div v-if="isFolderMode" class="folder-breadcrumb">
             <n-breadcrumb>
               <n-breadcrumb-item @click="selectGroup(null)">
                 <n-icon><FolderOutline/></n-icon>
@@ -177,7 +177,7 @@
                   <template #extra>
                     <p class="upload-hint">
                       <n-icon size="16"><CloudUploadOutline/></n-icon>
-                      支持拖拽文件或文件夹到此区域批量上传
+                      {{ emptyUploadHint }}
                     </p>
                   </template>
                 </n-empty>
@@ -319,25 +319,27 @@
     </div>
 
     <!-- 各种弹窗 -->
-    <!-- 文件列表上传弹窗 -->
-    <n-modal v-model:show="showUploadModal" preset="dialog" title="上传文件">
+    <!-- 上传弹窗 -->
+    <n-modal v-model:show="showUploadModal" preset="dialog" :title="uploadModalTitle">
       <div class="upload-dialog">
         <n-upload
             :custom-request="handleUpload"
             :show-file-list="false"
             :multiple="true"
-            accept="*"
+            :accept="uploadAccept"
         >
           <n-button type="primary" block>
-            <template #icon><n-icon><DocumentOutline/></n-icon></template>
-            选择文件
+            <template #icon><n-icon><component :is="categoryIcon"/></n-icon></template>
+            {{ uploadFileButtonText }}
           </n-button>
         </n-upload>
         <n-upload
+            v-if="isFolderMode"
             :custom-request="handleUpload"
             :show-file-list="false"
             :multiple="true"
             :directory="true"
+            :accept="uploadAccept"
         >
           <n-button block>
             <template #icon><n-icon><FolderOpenOutline/></n-icon></template>
@@ -350,11 +352,11 @@
       </template>
     </n-modal>
 
-    <!-- 新增/编辑文件夹弹窗 -->
-    <n-modal v-model:show="showGroupModal" preset="dialog" :title="editingGroup ? '重命名文件夹' : '新建文件夹'">
+    <!-- 新增/编辑分组或文件夹弹窗 -->
+    <n-modal v-model:show="showGroupModal" preset="dialog" :title="organizerModalTitle">
       <n-form :model="groupForm">
-        <n-form-item label="文件夹名称" required>
-          <n-input v-model:value="groupForm.name" placeholder="请输入文件夹名称"/>
+        <n-form-item :label="organizerInputLabel" required>
+          <n-input v-model:value="groupForm.name" :placeholder="organizerInputPlaceholder"/>
         </n-form-item>
       </n-form>
       <template #action>
@@ -366,13 +368,13 @@
     </n-modal>
 
     <!-- 移动到文件夹弹窗 -->
-    <n-modal v-model:show="showMoveModal" preset="dialog" title="移动到文件夹">
+    <n-modal v-model:show="showMoveModal" preset="dialog" :title="moveModalTitle">
       <n-form>
-        <n-form-item label="目标文件夹">
+        <n-form-item :label="moveTargetLabel">
           <n-select
               v-model:value="moveTargetGroupId"
               :options="moveGroupOptions"
-              placeholder="请选择文件夹"
+              :placeholder="moveTargetPlaceholder"
           />
         </n-form-item>
       </n-form>
@@ -478,6 +480,7 @@ function resolveCategory(): FileCategory {
 }
 
 const activeType = ref<FileCategory>(resolveCategory())
+const isFolderMode = computed(() => activeType.value === 'file')
 
 const categoryTitle = computed(() => {
   if (activeType.value === 'image') return '图片'
@@ -491,10 +494,54 @@ const categoryIcon = computed(() => {
   return DocumentOutline
 })
 
+const organizerTitle = computed(() => isFolderMode.value ? '文件夹' : `${categoryTitle.value}分组`)
+const ungroupedLabel = computed(() => isFolderMode.value ? '根目录' : '未分组')
+const createOrganizerText = computed(() => isFolderMode.value ? '新建文件夹' : '新建分组')
+const organizerItemIcon = computed(() => isFolderMode.value ? FolderOpenOutline : categoryIcon.value)
+const organizerInputLabel = computed(() => isFolderMode.value ? '文件夹名称' : '分组名称')
+const organizerInputPlaceholder = computed(() => isFolderMode.value ? '请输入文件夹名称' : '请输入分组名称')
+const organizerModalTitle = computed(() => {
+  if (editingGroup.value) return isFolderMode.value ? '重命名文件夹' : '重命名分组'
+  return createOrganizerText.value
+})
+const moveModalTitle = computed(() => isFolderMode.value ? '移动到文件夹' : '移动到分组')
+const moveTargetLabel = computed(() => isFolderMode.value ? '目标文件夹' : '目标分组')
+const moveTargetPlaceholder = computed(() => isFolderMode.value ? '请选择文件夹' : '请选择分组')
+
 const uploadAccept = computed(() => {
   if (activeType.value === 'image') return 'image/*'
   if (activeType.value === 'video') return 'video/*'
   return undefined
+})
+
+const uploadModalTitle = computed(() => {
+  if (activeType.value === 'image') return '上传图片'
+  if (activeType.value === 'video') return '上传视频'
+  return '上传文件'
+})
+
+const uploadFileButtonText = computed(() => {
+  if (activeType.value === 'image') return '选择图片'
+  if (activeType.value === 'video') return '选择视频'
+  return '选择文件'
+})
+
+const dragUploadTitle = computed(() => {
+  if (activeType.value === 'image') return '松开鼠标上传图片'
+  if (activeType.value === 'video') return '松开鼠标上传视频'
+  return '松开鼠标上传文件'
+})
+
+const dragUploadHint = computed(() => {
+  if (activeType.value === 'image') return '支持拖拽多张图片到当前分组'
+  if (activeType.value === 'video') return '支持拖拽多个视频到当前分组'
+  return '支持多文件或文件夹同时上传'
+})
+
+const emptyUploadHint = computed(() => {
+  if (activeType.value === 'image') return '支持拖拽图片到此区域批量上传'
+  if (activeType.value === 'video') return '支持拖拽视频到此区域批量上传'
+  return '支持拖拽文件或文件夹到此区域批量上传'
 })
 
 // 分组相关
@@ -513,7 +560,7 @@ const searchName = ref('')
 
 // 文件列表
 const files = ref<SysFile[]>([])
-const visibleFolders = computed(() => activeGroupId.value === -1 ? [] : groups.value)
+const visibleFolders = computed(() => isFolderMode.value && activeGroupId.value !== -1 ? groups.value : [])
 const hasContent = computed(() => files.value.length > 0 || visibleFolders.value.length > 0)
 const loading = ref(false)
 const selectedIds = ref<number[]>([])
@@ -569,6 +616,14 @@ const groupMenuOptions = [
 
 // 移动分组选项
 const moveGroupOptions = computed(() => {
+  if (!isFolderMode.value) {
+    return [
+      {label: '未分组', value: null},
+      ...allGroups.value
+          .filter(item => item.parentId == null)
+          .map(item => ({label: item.name, value: item.id}))
+    ]
+  }
   return [
     {label: '根目录', value: null},
     ...flattenFolderOptions(allGroups.value)
@@ -582,15 +637,18 @@ const isIndeterminate = computed(() => selectedIds.value.length > 0 && selectedI
 // 加载分组
 async function loadGroups() {
   try {
-    const res = await fileGroupApi.children({
-      groupScope: activeType.value,
-      parentId: activeGroupId.value === -1 ? null : activeGroupId.value
-    })
     const allRes = await fileGroupApi.list({groupScope: activeType.value})
-    const breadcrumbRes = await fileGroupApi.breadcrumb(activeGroupId.value === -1 ? null : activeGroupId.value)
-    groups.value = res
+    if (isFolderMode.value) {
+      groups.value = await fileGroupApi.children({
+        groupScope: activeType.value,
+        parentId: activeGroupId.value === -1 ? null : activeGroupId.value
+      })
+      breadcrumb.value = await fileGroupApi.breadcrumb(activeGroupId.value === -1 ? null : activeGroupId.value)
+    } else {
+      groups.value = allRes.groups.filter(item => item.parentId == null)
+      breadcrumb.value = []
+    }
     allGroups.value = allRes.groups
-    breadcrumb.value = breadcrumbRes
     ungroupedCount.value = allRes.ungroupedCount
     categoryAllCount.value = Number(allRes.allCount || 0)
   } catch (error) {
@@ -670,7 +728,9 @@ function handleGroupAction(key: string, group: SysFileGroup) {
   } else if (key === 'delete') {
     dialog.warning({
       title: '提示',
-      content: `确定要删除文件夹"${group.name}"吗？文件夹内的文件将移动到上级目录。`,
+      content: isFolderMode.value
+          ? `确定要删除文件夹"${group.name}"吗？文件夹内的文件将移动到上级目录。`
+          : `确定要删除分组"${group.name}"吗？分组内的文件将移动到未分组。`,
       positiveText: '确定',
       negativeText: '取消',
       onPositiveClick: async () => {
@@ -702,7 +762,7 @@ function openCreateFolderModal() {
 // 保存分组
 async function handleSaveGroup() {
   if (!groupForm.name.trim()) {
-    message.warning('请输入文件夹名称')
+    message.warning(organizerInputPlaceholder.value)
     return
   }
   try {
@@ -713,7 +773,7 @@ async function handleSaveGroup() {
       await fileGroupApi.create({
         name: groupForm.name,
         groupScope: activeType.value,
-        parentId: activeGroupId.value === -1 ? null : activeGroupId.value
+        parentId: isFolderMode.value && activeGroupId.value !== -1 ? activeGroupId.value : null
       })
       message.success('创建成功')
     }
@@ -743,7 +803,13 @@ async function handleUpload(options: UploadCustomRequestOptions) {
     return
   }
   try {
-    await fileApi.upload(rawFile, undefined, getUploadGroupId(), activeType.value, file.fullPath || undefined)
+    await fileApi.upload(
+        rawFile,
+        undefined,
+        getUploadGroupId(),
+        activeType.value,
+        isFolderMode.value ? file.fullPath || undefined : undefined
+    )
     message.success('上传成功')
     onFinish()
     loadFiles()
@@ -761,7 +827,13 @@ async function uploadFilesToCurrentFolder(uploadFiles: File[]) {
       continue
     }
     try {
-      await fileApi.upload(uploadFile, undefined, uploadGroupId, activeType.value, getRelativePath(uploadFile))
+      await fileApi.upload(
+          uploadFile,
+          undefined,
+          uploadGroupId,
+          activeType.value,
+          isFolderMode.value ? getRelativePath(uploadFile) : undefined
+      )
       successCount++
     } catch (error) {
       message.error(`${uploadFile.name} 上传失败`)
