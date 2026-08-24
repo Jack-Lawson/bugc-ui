@@ -170,7 +170,10 @@ export function buildApiUrl(path: string) {
 
 export function normalizeApiAssetUrl(url?: string | null) {
   if (!url) return ''
-  if (/^(https?:)?\/\//.test(url) || /^(data|blob):/.test(url)) return url
+  if (/^(data|blob):/.test(url)) return url
+  if (/^(https?:)?\/\//.test(url)) {
+    return normalizeObjectStorageUrl(url) || url
+  }
   if (url.startsWith(`${apiConfig.baseUrl.replace(/\/+$/, '')}/`)) return url
   if (url.startsWith('/api/')) {
     return apiConfig.baseUrl === '/api'
@@ -178,6 +181,21 @@ export function normalizeApiAssetUrl(url?: string | null) {
       : joinUrl(apiConfig.baseUrl, url.replace(/^\/api\/+/, ''))
   }
   return buildApiUrl(`/files/${url}`)
+}
+
+function normalizeObjectStorageUrl(url: string) {
+  try {
+    const parsedUrl = new URL(url, window.location.origin)
+    const hostname = parsedUrl.hostname.toLowerCase()
+    const isObjectStorageUrl = hostname.includes('oss') || hostname.includes('aliyuncs')
+    if (!isObjectStorageUrl) return ''
+
+    const objectPath = parsedUrl.pathname.replace(/^\/+/, '')
+    if (!objectPath) return ''
+    return buildApiUrl(`/files/${objectPath}`)
+  } catch {
+    return ''
+  }
 }
 
 export function getWebSocketBaseUrl() {

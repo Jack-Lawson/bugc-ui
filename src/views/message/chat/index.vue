@@ -184,7 +184,7 @@
             <div class="message-content">
               <!-- 图片消息 -->
               <div v-if="msg.msgType === 2" class="message-image" @click="previewImage(msg.content)">
-                <img :src="msg.content" alt="图片" />
+                <img :src="getMessageImageUrl(msg.content)" alt="图片" />
               </div>
               <!-- 文本消息 -->
               <div v-else class="message-bubble">{{ msg.content }}</div>
@@ -342,7 +342,7 @@
                     <div v-if="msg.senderId !== currentUserId" class="message-sender">{{ msg.senderName }}</div>
                     <!-- 图片消息 -->
                     <div v-if="msg.msgType === 2" class="message-image" @click="previewImage(msg.content)">
-                      <img :src="msg.content" alt="图片" />
+                      <img :src="getMessageImageUrl(msg.content)" alt="图片" />
                     </div>
                     <!-- 文本消息 -->
                     <div v-else class="message-bubble">{{ msg.content }}</div>
@@ -590,7 +590,7 @@ import { chatApi, groupChatApi, type ChatMessage, type ChatUser, type ChatGroup,
 import { fileApi } from '@/api/system'
 import { useUserStore } from '@/stores/user'
 import { wsManager } from '@/utils/websocket'
-import { storageKeys } from '@/config/app'
+import { normalizeApiAssetUrl, storageKeys } from '@/config/app'
 
 const route = useRoute()
 const message = useMessage()
@@ -895,8 +895,12 @@ async function handleUploadImage(options: UploadCustomRequestOptions) {
 
 // 预览图片
 function previewImage(url: string) {
-  previewUrl.value = url
+  previewUrl.value = getMessageImageUrl(url)
   previewVisible.value = true
+}
+
+function getMessageImageUrl(url: string) {
+  return normalizeApiAssetUrl(url)
 }
 
 // 插入表情（私聊）
