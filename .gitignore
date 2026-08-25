@@ -49,7 +49,7 @@ Thumbs.db
 # Local uploads and generated user files
 uploads/
 
-# Java / Maven output, kept here because this frontend builds into a Spring static directory.
+# Java / Maven output, kept for adjacent workspace hygiene.
 target/
 **/target/
 
@@ -57,6 +57,5 @@ target/
 uniapp/unpackage/
 uniapp/project.private.config.json
 
-# Note: this Vite project writes production assets to a sibling backend static directory.
-# A repository .gitignore cannot ignore files outside its own worktree; keep the backend
-# repository's ignore rules aligned if that output directory is tracked separately.
+# Note: production assets are built into this frontend repo's dist/ directory and then
+# synchronized to the system Nginx static directory during deployment.

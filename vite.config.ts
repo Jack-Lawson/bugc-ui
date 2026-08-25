@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
   const devServerPort = Number.isFinite(configuredPort) && configuredPort > 0 ? configuredPort : 3000
   const devApiTarget = env.VITE_DEV_API_TARGET || devBackendUrl
   const devWsTarget = env.VITE_DEV_WS_TARGET || devBackendWsUrl
-  const buildOutDir = env.VITE_BUILD_OUT_DIR || '../bugc-manage/bugc-starter/src/main/resources/static'
+  const buildOutDir = env.VITE_BUILD_OUT_DIR || 'dist'
 
   return {
     plugins: [vue()],
