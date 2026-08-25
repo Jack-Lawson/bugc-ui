@@ -218,8 +218,12 @@
                     <n-checkbox :checked="selectedIds.includes(file.id!)" @update:checked="toggleSelect(file)"/>
                   </div>
                   <div class="file-preview" @click.stop="handlePreview(file)">
-                    <img v-if="isImage(file)" :src="getFileAssetUrl(file)" alt=""/>
-                    <video v-else-if="isVideo(file)" :src="getFileAssetUrl(file)"/>
+                    <img v-if="isImage(file)" :src="getFileThumbnailUrl(file)" :alt="file.originalName" loading="lazy" decoding="async"/>
+                    <div v-else-if="isVideo(file)" class="file-icon">
+                      <n-icon size="48" :color="getFileIconColor(file)">
+                        <component :is="getFileIcon(file)"/>
+                      </n-icon>
+                    </div>
                     <div v-else class="file-icon">
                       <n-icon size="48" :color="getFileIconColor(file)">
                         <component :is="getFileIcon(file)"/>
@@ -273,7 +277,7 @@
                     <n-checkbox :checked="selectedIds.includes(file.id!)" @update:checked="toggleSelect(file)"/>
                   </div>
                   <div class="file-preview-small" @click.stop="handlePreview(file)">
-                    <img v-if="isImage(file)" :src="getFileAssetUrl(file)" alt=""/>
+                    <img v-if="isImage(file)" :src="getFileThumbnailUrl(file, 80, 80)" :alt="file.originalName" loading="lazy" decoding="async"/>
                     <n-icon v-else size="32" :color="getFileIconColor(file)">
                       <component :is="getFileIcon(file)"/>
                     </n-icon>
@@ -403,11 +407,27 @@
 
     <!-- 预览弹窗 -->
     <n-modal v-model:show="previewVisible" preset="card" title="文件预览" :style="previewModalStyle">
-      <div class="preview-container">
+      <div v-if="isImage(previewFile)" class="image-preview-shell">
+        <div class="image-preview-toolbar">
+          <n-button size="small" secondary @click="zoomOutImage">缩小</n-button>
+          <span class="image-preview-scale">{{ imageZoomPercent }}%</span>
+          <n-button size="small" secondary @click="zoomInImage">放大</n-button>
+          <n-button size="small" tertiary @click="resetImageZoom">重置</n-button>
+        </div>
+        <div class="image-preview-viewport" @wheel.prevent="handleImageWheel">
+          <img
+              :src="previewUrl"
+              alt="预览"
+              class="preview-image"
+              :style="imagePreviewStyle"
+              draggable="false"
+          />
+        </div>
+      </div>
+      <div v-else class="preview-container">
         <!-- 图片预览 -->
-        <img v-if="isImage(previewFile)" :src="previewUrl" alt="预览" class="preview-image"/>
         <!-- 视频预览 -->
-        <video v-else-if="isVideo(previewFile)" :src="previewUrl" controls class="preview-video"/>
+        <video v-if="isVideo(previewFile)" :src="previewUrl" controls class="preview-video"/>
         <!-- 音频预览 -->
         <audio v-else-if="isAudio(previewFile)" :src="previewUrl" controls/>
         <!-- PDF预览 -->
@@ -593,6 +613,13 @@ const previewFile = ref<SysFile | null>(null)
 const previewUrl = ref('')
 const previewText = ref('')
 const textLoading = ref(false)
+const imageZoom = ref(1)
+const imageZoomPercent = computed(() => Math.round(imageZoom.value * 100))
+const imagePreviewStyle = computed(() => ({
+  width: `${imageZoom.value * 100}%`,
+  maxWidth: 'none',
+  maxHeight: 'none'
+}))
 
 // 预览弹窗样式（根据文件类型调整大小）
 const previewModalStyle = computed(() => {
@@ -605,6 +632,31 @@ const previewModalStyle = computed(() => {
   }
   return {width: '800px'}
 })
+
+function clampImageZoom(value: number) {
+  return Math.min(Math.max(value, 0.2), 5)
+}
+
+function setImageZoom(value: number) {
+  imageZoom.value = Number(clampImageZoom(value).toFixed(2))
+}
+
+function zoomInImage() {
+  setImageZoom(imageZoom.value + 0.2)
+}
+
+function zoomOutImage() {
+  setImageZoom(imageZoom.value - 0.2)
+}
+
+function resetImageZoom() {
+  setImageZoom(1)
+}
+
+function handleImageWheel(event: WheelEvent) {
+  const delta = event.deltaY > 0 ? -0.1 : 0.1
+  setImageZoom(imageZoom.value + delta)
+}
 
 // 拖拽上传
 const isDragging = ref(false)
@@ -931,6 +983,7 @@ function validateUploadFile(file: File): boolean {
 // 预览
 async function handlePreview(file: SysFile) {
   previewFile.value = file
+  resetImageZoom()
   
   // PDF、视频、音频等需要内嵌预览的文件，强制使用后端预览接口（避免云存储的attachment头导致下载）
   if (isPdf(file) || isVideo(file) || isAudio(file)) {
@@ -1052,6 +1105,7 @@ function isText(file: SysFile | null): boolean { if (!file) return false; const 
 function isPreviewable(file: SysFile): boolean { return isImage(file) || isVideo(file) || isAudio(file) || isPdf(file) || isText(file) || isOffice(file) }
 function getCodeLanguage(file: SysFile | null): string { const s = file?.fileSuffix?.toLowerCase() || ''; const m: any = {'.js': 'javascript', '.ts': 'typescript', '.vue': 'vue', '.json': 'json', '.java': 'java', '.py': 'python', '.md': 'markdown'}; return m[s] || 'text' }
 function getFileAssetUrl(file: SysFile): string { return normalizeApiAssetUrl(file.url) || fileApi.getPreviewUrl(file.id!) }
+function getFileThumbnailUrl(file: SysFile, width = 240, height = 160): string { return file.id ? fileApi.getThumbnailUrl(file.id, width, height) : getFileAssetUrl(file) }
 function getOfficePreviewUrl(file: SysFile | null): string { if (!file) return ''; return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(getFileAssetUrl(file))}` }
 function getFileIcon(file: SysFile) { const s = file.fileSuffix?.toLowerCase() || ''; if (['.doc', '.docx', '.xls', '.xlsx', '.pdf', '.txt', '.md'].includes(s)) return DocumentTextOutline; if (['.js', '.ts', '.vue'].includes(s)) return CodeSlashOutline; if (file.fileType?.startsWith('image/')) return ImageOutline; return DocumentOutline }
 function getFileIconColor(file: SysFile) { const s = file.fileSuffix?.toLowerCase() || ''; if (['.doc', '.docx'].includes(s)) return '#2b579a'; if (['.xls', '.xlsx'].includes(s)) return '#217346'; if (['.pdf'].includes(s)) return '#f40f02'; return '#9ca3af' }
@@ -1364,6 +1418,48 @@ watch(
 /* 预览相关样式 */
 .preview-container { display: flex; justify-content: center; align-items: center; min-height: 300px; width: 100%; }
 .preview-image, .preview-video { max-width: 100%; max-height: 70vh; }
+.image-preview-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.image-preview-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.image-preview-scale {
+  min-width: 48px;
+  color: var(--n-text-color-2);
+  font-size: 13px;
+  text-align: center;
+}
+
+.image-preview-viewport {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+  max-height: 70vh;
+  width: 100%;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--n-hover-color);
+  overscroll-behavior: contain;
+}
+
+.image-preview-viewport .preview-image {
+  display: block;
+  height: auto;
+  transition: width 0.12s ease;
+  user-select: none;
+}
+
 .preview-pdf { width: 100%; height: 75vh; border: none; }
 .preview-office { width: 100%; height: 75vh; }
 .preview-office-frame { width: 100%; height: 100%; border: none; }
@@ -1540,6 +1636,19 @@ watch(
 
   .preview-container {
     min-height: 220px;
+  }
+
+  .image-preview-toolbar {
+    justify-content: flex-start;
+  }
+
+  .image-preview-toolbar :deep(.n-button) {
+    flex: 1 1 calc(25% - 8px);
+  }
+
+  .image-preview-viewport {
+    min-height: 220px;
+    max-height: 62vh;
   }
 
   .preview-image,

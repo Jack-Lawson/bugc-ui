@@ -422,6 +422,10 @@ export const fileApi = {
     return buildApiUrl(`/sys/file/preview/${id}`)
   },
 
+  getThumbnailUrl(id: number, width = 240, height = 160): string {
+    return buildApiUrl(`/sys/file/thumbnail/${id}?width=${width}&height=${height}`)
+  },
+
   getTextContent(id: number): Promise<string> {
     return request({ url: `/sys/file/text/${id}`, method: 'get' })
   },

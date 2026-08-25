@@ -199,6 +199,38 @@ async function mockAuthenticatedApi(page: import('@playwright/test').Page) {
       })
     }
 
+    if (url.pathname === '/api/sys/file/page-by-group') {
+      const fileScope = url.searchParams.get('fileScope')
+      const data = fileScope === 'image'
+        ? {
+            list: [
+              {
+                id: 9001,
+                originalName: 'mobile-preview-demo.jpg',
+                fileName: 'mobile-preview-demo.jpg',
+                filePath: 'images/demo/mobile-preview-demo.jpg',
+                url: '/api/files/images/demo/mobile-preview-demo.jpg',
+                fileSize: 1048576,
+                fileType: 'image/jpeg',
+                fileScope: 'image',
+                fileSuffix: '.jpg',
+                storageType: 'local',
+                createTime: '2026-08-25 10:00:00'
+              }
+            ],
+            total: 1
+          }
+        : {
+            list: [],
+            total: 0
+          }
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 200, message: 'ok', data })
+      })
+    }
+
     const request = route.request()
     if (request.method() === 'GET') {
       return route.fulfill({
@@ -332,6 +364,34 @@ test.describe('后台移动端通用适配', () => {
     await statusSelect.click()
     await expect(page.locator('.n-base-select-option').filter({ hasText: '正常' }).last()).toBeVisible()
     await expect(page.locator('.n-base-select-option').filter({ hasText: '暂停' }).last()).toBeVisible()
+  })
+
+  test('图片管理列表使用缩略图，点击查看后再加载原图', async ({ page }) => {
+    await login(page)
+
+    await page.goto('/system/image', { waitUntil: 'domcontentloaded', timeout: 20_000 })
+    const listImage = page.locator('.file-preview img').first()
+    await expect(listImage).toBeVisible()
+
+    const listSrc = await listImage.getAttribute('src')
+    expect(listSrc || '').toContain('/api/sys/file/thumbnail/9001')
+
+    await listImage.click()
+    const originalImage = page.locator('.preview-image').first()
+    await expect(originalImage).toBeVisible()
+    const originalSrc = await originalImage.getAttribute('src')
+    expect(originalSrc || '').toContain('/api/files/images/demo/mobile-preview-demo.jpg')
+
+    await expect(page.locator('.image-preview-scale')).toHaveText('100%')
+    await page.getByRole('button', { name: '放大' }).click()
+    await expect(page.locator('.image-preview-scale')).toHaveText('120%')
+    await page.locator('.image-preview-viewport').hover()
+    await page.mouse.wheel(0, -120)
+    await expect(page.locator('.image-preview-scale')).toHaveText('130%')
+    await page.getByRole('button', { name: '缩小' }).click()
+    await expect(page.locator('.image-preview-scale')).toHaveText('110%')
+    await page.getByRole('button', { name: '重置' }).click()
+    await expect(page.locator('.image-preview-scale')).toHaveText('100%')
   })
 
   test('缓存监控键列表手机端使用卡片展示，桌面端保持表格', async ({ page }, testInfo) => {
