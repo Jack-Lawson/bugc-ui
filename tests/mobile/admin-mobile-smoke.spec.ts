@@ -388,6 +388,18 @@ test.describe('后台移动端通用适配', () => {
     await page.locator('.image-preview-viewport').hover()
     await page.mouse.wheel(0, -120)
     await expect(page.locator('.image-preview-scale')).toHaveText('130%')
+    const viewport = page.locator('.image-preview-viewport')
+    const viewportBox = await viewport.boundingBox()
+    expect(viewportBox).not.toBeNull()
+    if (viewportBox) {
+      const beforeDragTransform = await originalImage.evaluate(node => getComputedStyle(node as HTMLElement).transform)
+      await page.mouse.move(viewportBox.x + viewportBox.width / 2, viewportBox.y + viewportBox.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(viewportBox.x + viewportBox.width / 2 - 80, viewportBox.y + viewportBox.height / 2)
+      await page.mouse.up()
+      const afterDragTransform = await originalImage.evaluate(node => getComputedStyle(node as HTMLElement).transform)
+      expect(afterDragTransform).not.toBe(beforeDragTransform)
+    }
     await page.getByRole('button', { name: '缩小' }).click()
     await expect(page.locator('.image-preview-scale')).toHaveText('110%')
     await page.getByRole('button', { name: '重置' }).click()

@@ -414,7 +414,16 @@
           <n-button size="small" secondary @click="zoomInImage">放大</n-button>
           <n-button size="small" tertiary @click="resetImageZoom">重置</n-button>
         </div>
-        <div class="image-preview-viewport" @wheel.prevent="handleImageWheel">
+        <div
+            class="image-preview-viewport"
+            :class="{ 'image-preview-viewport--dragging': imageDragging }"
+            @wheel.prevent="handleImageWheel"
+            @pointerdown="handleImageDragStart"
+            @pointermove="handleImageDragMove"
+            @pointerup="handleImageDragEnd"
+            @pointercancel="handleImageDragEnd"
+            @pointerleave="handleImageDragEnd"
+        >
           <img
               :src="previewUrl"
               alt="预览"
@@ -614,12 +623,19 @@ const previewUrl = ref('')
 const previewText = ref('')
 const textLoading = ref(false)
 const imageZoom = ref(1)
+const imageOffsetX = ref(0)
+const imageOffsetY = ref(0)
 const imageZoomPercent = computed(() => Math.round(imageZoom.value * 100))
 const imagePreviewStyle = computed(() => ({
-  width: `${imageZoom.value * 100}%`,
-  maxWidth: 'none',
-  maxHeight: 'none'
+  transform: `translate(${imageOffsetX.value}px, ${imageOffsetY.value}px) scale(${imageZoom.value})`
 }))
+const imageDragging = ref(false)
+const imageDragState = reactive({
+  startX: 0,
+  startY: 0,
+  offsetX: 0,
+  offsetY: 0
+})
 
 // 预览弹窗样式（根据文件类型调整大小）
 const previewModalStyle = computed(() => {
@@ -651,11 +667,43 @@ function zoomOutImage() {
 
 function resetImageZoom() {
   setImageZoom(1)
+  imageOffsetX.value = 0
+  imageOffsetY.value = 0
+  imageDragging.value = false
 }
 
 function handleImageWheel(event: WheelEvent) {
   const delta = event.deltaY > 0 ? -0.1 : 0.1
   setImageZoom(imageZoom.value + delta)
+}
+
+function handleImageDragStart(event: PointerEvent) {
+  if (event.button !== 0 || !(event.currentTarget instanceof HTMLElement)) {
+    return
+  }
+  const target = event.currentTarget
+  imageDragging.value = true
+  imageDragState.startX = event.clientX
+  imageDragState.startY = event.clientY
+  imageDragState.offsetX = imageOffsetX.value
+  imageDragState.offsetY = imageOffsetY.value
+  target.setPointerCapture?.(event.pointerId)
+}
+
+function handleImageDragMove(event: PointerEvent) {
+  if (!imageDragging.value || !(event.currentTarget instanceof HTMLElement)) {
+    return
+  }
+  event.preventDefault()
+  imageOffsetX.value = imageDragState.offsetX + event.clientX - imageDragState.startX
+  imageOffsetY.value = imageDragState.offsetY + event.clientY - imageDragState.startY
+}
+
+function handleImageDragEnd(event: PointerEvent) {
+  if (event.currentTarget instanceof HTMLElement) {
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
+  }
+  imageDragging.value = false
 }
 
 // 拖拽上传
@@ -1447,17 +1495,30 @@ watch(
   min-height: 300px;
   max-height: 70vh;
   width: 100%;
-  overflow: auto;
+  overflow: hidden;
   border-radius: 6px;
   background: var(--n-hover-color);
   overscroll-behavior: contain;
+  cursor: grab;
+  touch-action: none;
+}
+
+.image-preview-viewport--dragging {
+  cursor: grabbing;
 }
 
 .image-preview-viewport .preview-image {
   display: block;
+  max-width: 100%;
+  max-height: 70vh;
   height: auto;
-  transition: width 0.12s ease;
+  transform-origin: center center;
+  transition: transform 0.12s ease;
   user-select: none;
+}
+
+.image-preview-viewport--dragging .preview-image {
+  transition: none;
 }
 
 .preview-pdf { width: 100%; height: 75vh; border: none; }
