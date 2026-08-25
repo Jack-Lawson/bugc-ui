@@ -32,7 +32,7 @@
           type="button"
           @click="go(module.path)"
         >
-          <span class="module-icon module-icon--large" :style="{ color: module.color, background: module.bgColor }">
+          <span class="module-icon module-icon--large" :style="moduleIconStyle">
             <n-icon size="26">
               <component :is="module.icon" />
             </n-icon>
@@ -70,7 +70,7 @@
             type="button"
             @click="go(module.path)"
           >
-            <span class="module-icon" :style="{ color: module.color, background: module.bgColor }">
+            <span class="module-icon" :style="moduleIconStyle">
               <n-icon size="22">
                 <component :is="module.icon" />
               </n-icon>
@@ -134,6 +134,10 @@ interface ModuleGroup {
 const router = useRouter()
 const userStore = useUserStore()
 const currentDate = ref('')
+const moduleIconStyle = {
+  color: 'var(--dashboard-primary)',
+  background: 'var(--dashboard-primary-soft)'
+}
 
 const userInitial = computed(() => (userStore.nickname || userStore.user?.username || 'U').charAt(0).toUpperCase())
 
@@ -278,6 +282,12 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 .dashboard-page {
+  --dashboard-primary: var(--primary-color, #2E5CF6);
+  --dashboard-primary-soft: color-mix(in srgb, var(--dashboard-primary) 10%, #ffffff);
+  --dashboard-primary-soft-strong: color-mix(in srgb, var(--dashboard-primary) 14%, #ffffff);
+  --dashboard-primary-border: color-mix(in srgb, var(--dashboard-primary) 28%, #e2e8f0);
+  --dashboard-primary-hover-border: color-mix(in srgb, var(--dashboard-primary) 50%, #e2e8f0);
+  --dashboard-primary-shadow: color-mix(in srgb, var(--dashboard-primary) 14%, transparent);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -301,7 +311,7 @@ onUnmounted(() => {
 }
 
 .dashboard-kicker {
-  color: #2563eb;
+  color: var(--dashboard-primary);
   font-size: 13px;
   font-weight: 700;
   line-height: 1.4;
@@ -418,8 +428,8 @@ onUnmounted(() => {
 .featured-card:hover,
 .module-card:hover {
   transform: translateY(-1px);
-  border-color: #93c5fd;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, .08);
+  border-color: var(--dashboard-primary-hover-border);
+  box-shadow: 0 10px 22px var(--dashboard-primary-shadow);
 }
 
 .featured-card {
@@ -489,8 +499,8 @@ onUnmounted(() => {
 }
 
 .module-card--primary {
-  background: #f8fbff;
-  border-color: #bfdbfe;
+  background: var(--dashboard-primary-soft);
+  border-color: var(--dashboard-primary-border);
 }
 
 .module-icon {

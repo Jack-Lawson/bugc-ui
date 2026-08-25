@@ -107,7 +107,7 @@
 
     <!-- 新增/编辑弹窗 -->
     <n-modal v-model:show="showModal" preset="card" :title="editingServer ? '编辑服务器' : '新增服务器'" style="width: min(600px, 96vw)">
-      <n-form ref="formRef" :model="formData" :rules="rules" label-placement="left" label-width="100">
+      <n-form ref="formRef" :model="formData" :rules="rules" :label-placement="isMobile ? 'top' : 'left'" label-width="100">
         <n-form-item label="服务器名称" path="name">
           <n-input v-model:value="formData.name" placeholder="请输入服务器名称" />
         </n-form-item>
@@ -219,6 +219,7 @@ import { serverApi, type Server } from '@/api/server'
 import { serverMonitorApi } from '@/api/monitor'
 import { useUserStore } from '@/stores/user'
 import { buildWebSocketUrl, websocketConfig } from '@/config/app'
+import { useResponsive } from '@/composables/useResponsive'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
@@ -226,6 +227,7 @@ import '@xterm/xterm/css/xterm.css'
 const message = useMessage()
 const dialog = useDialog()
 const router = useRouter()
+const { isMobile } = useResponsive()
 
 // 列表数据
 const servers = ref<Server[]>([])
@@ -299,7 +301,7 @@ let ws: WebSocket | null = null
 
 // 切换全屏
 function toggleFullscreen() {
-  isFullscreen.value = !isFullscreen.value
+  isFullscreen.value = isMobile.value ? true : !isFullscreen.value
   // 等待 DOM 更新后调整终端大小
   nextTick(() => {
     setTimeout(() => {
@@ -589,6 +591,7 @@ async function handleSubmit() {
 // 连接终端
 async function handleConnect(server: Server) {
   connectingServer.value = server
+  isFullscreen.value = isMobile.value
   showTerminal.value = true
   
   await nextTick()
@@ -809,7 +812,49 @@ onUnmounted(() => {
   }
 
   .server-actions :deep(.n-button) {
-    min-width: 84px;
+    flex: 1 1 calc(50% - 8px);
+    min-width: 0;
+  }
+
+  .private-key-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .terminal-modal {
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .terminal-modal-content {
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+  }
+
+  .terminal-modal-header {
+    padding: 10px 12px;
+  }
+
+  .terminal-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .terminal-modal-body {
+    padding: 8px;
+  }
+
+  .terminal-modal-footer {
+    padding: 8px 12px;
+  }
+
+  .terminal-modal-footer :deep(.n-button) {
+    width: 100%;
   }
 }
 

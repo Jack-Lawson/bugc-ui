@@ -13,6 +13,8 @@ node_modules/.vite/
 # Test and coverage output
 coverage/
 .nyc_output/
+test-results/
+playwright-report/
 
 # Package manager debug logs
 npm-debug.log*

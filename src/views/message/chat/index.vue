@@ -2,14 +2,14 @@
   <div class="page-container">
     <n-card 
       class="chat-card" 
-      :class="{ 'chat-fullscreen': isFullscreen }"
-      :style="{ width: cardWidth + 'px', height: cardHeight + 'px' }"
+      :class="{ 'chat-fullscreen': isFullscreen, 'chat-card--conversation': mobileConversationOpen }"
+      :style="chatCardStyle"
     >
       <!-- 右下角拖拽调整大小 -->
-      <div class="card-resize-handle" @mousedown="startCardResize"></div>
+      <div v-if="!isMobile" class="card-resize-handle" @mousedown="startCardResize"></div>
       <div class="chat-wrapper">
         <!-- 左侧联系人列表 -->
-        <div class="chat-sidebar" :style="{ width: sidebarWidth + 'px' }">
+        <div class="chat-sidebar" :style="chatSidebarStyle">
           <div class="sidebar-header">
             <n-input v-model:value="searchKeyword" placeholder="搜索" clearable size="small">
               <template #prefix>
@@ -97,6 +97,7 @@
         
         <!-- 可拖拽分隔条 -->
         <div 
+          v-if="!isMobile"
           class="resize-handle"
           @mousedown="startResize"
         ></div>
@@ -107,6 +108,11 @@
           <template v-if="selectedUser && !selectedGroup">
             <!-- 聊天头部 -->
             <div class="chat-header">
+              <n-button v-if="isMobile" quaternary circle title="返回列表" @click="backToChatList">
+                <template #icon>
+                  <n-icon size="18"><ChevronBackOutline /></n-icon>
+                </template>
+              </n-button>
               <n-avatar round :src="selectedUser.avatar || undefined">
                 {{ selectedUser.nickname?.charAt(0) || 'U' }}
               </n-avatar>
@@ -289,6 +295,11 @@
           <template v-else-if="selectedGroup">
             <!-- 群聊头部 -->
             <div class="chat-header">
+              <n-button v-if="isMobile" quaternary circle title="返回列表" @click="backToChatList">
+                <template #icon>
+                  <n-icon size="18"><ChevronBackOutline /></n-icon>
+                </template>
+              </n-button>
               <n-avatar round :style="{ background: '#18a058' }">
                 {{ selectedGroup.name?.charAt(0) || 'G' }}
               </n-avatar>
@@ -585,16 +596,18 @@
 import { ref, computed, onMounted, nextTick, watch, h } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMessage, NIcon, type UploadCustomRequestOptions } from 'naive-ui'
-import { SearchOutline, ImageOutline, HappyOutline, ExpandOutline, ContractOutline, FlashOutline, AddOutline, SettingsOutline, EllipsisVerticalOutline, AlertCircleOutline, PersonOutline, TrashOutline, BanOutline } from '@vicons/ionicons5'
+import { SearchOutline, ImageOutline, HappyOutline, ExpandOutline, ContractOutline, FlashOutline, AddOutline, SettingsOutline, EllipsisVerticalOutline, AlertCircleOutline, PersonOutline, TrashOutline, BanOutline, ChevronBackOutline } from '@vicons/ionicons5'
 import { chatApi, groupChatApi, type ChatMessage, type ChatUser, type ChatGroup, type ChatGroupMember, type ChatGroupMessage } from '@/api/message'
 import { fileApi } from '@/api/system'
 import { useUserStore } from '@/stores/user'
 import { wsManager } from '@/utils/websocket'
 import { normalizeApiAssetUrl, storageKeys } from '@/config/app'
+import { useResponsive } from '@/composables/useResponsive'
 
 const route = useRoute()
 const message = useMessage()
 const userStore = useUserStore()
+const { isMobile } = useResponsive()
 const currentUserId = computed(() => userStore.user?.id)
 
 // 聊天模式
@@ -655,6 +668,15 @@ const isResizing = ref(false)
 // 卡片大小拖拽调整
 const cardWidth = ref(parseInt(localStorage.getItem(storageKeys.chatCardWidth) || '1000'))
 const cardHeight = ref(parseInt(localStorage.getItem(storageKeys.chatCardHeight) || '600'))
+const mobileConversationOpen = computed(() => isMobile.value && (!!selectedUser.value || !!selectedGroup.value))
+const chatCardStyle = computed(() => {
+  if (isMobile.value) return {}
+  return { width: `${cardWidth.value}px`, height: `${cardHeight.value}px` }
+})
+const chatSidebarStyle = computed(() => {
+  if (isMobile.value) return {}
+  return { width: `${sidebarWidth.value}px` }
+})
 
 // 表情相关
 const inputRef = ref<any>(null)
@@ -974,6 +996,12 @@ async function selectGroup(group: ChatGroup) {
   await loadGroupMembers()
 }
 
+function backToChatList() {
+  if (!isMobile.value) return
+  selectedUser.value = null
+  selectedGroup.value = null
+}
+
 // 加载群消息
 async function loadGroupMessages() {
   if (!selectedGroup.value) return
@@ -1232,6 +1260,7 @@ async function handleQuitGroup() {
 
 // 切换全屏
 function toggleFullscreen() {
+  if (isMobile.value) return
   isFullscreen.value = !isFullscreen.value
 }
 
@@ -1868,6 +1897,135 @@ onMounted(async () => {
   background: #f5f7fa;
 }
 
+@media (max-width: 768px) {
+  .page-container {
+    height: calc(100dvh - 56px);
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+  }
+
+  .chat-card {
+    width: 100% !important;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .chat-wrapper {
+    position: relative;
+  }
+
+  .chat-sidebar,
+  .chat-main {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    height: 100%;
+  }
+
+  .chat-sidebar {
+    border-right: 0;
+  }
+
+  .chat-card--conversation .chat-sidebar {
+    display: none;
+  }
+
+  .chat-card:not(.chat-card--conversation) .chat-main {
+    display: none;
+  }
+
+  .sidebar-header {
+    padding: 12px;
+  }
+
+  .contact-item {
+    padding: 12px;
+  }
+
+  .chat-header {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .chat-header-info {
+    min-width: 0;
+  }
+
+  .chat-header-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chat-header-actions {
+    flex-shrink: 0;
+  }
+
+  .chat-header-actions :deep(.n-button):last-child {
+    display: none;
+  }
+
+  .message-list {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .message-item {
+    max-width: 88%;
+  }
+
+  .message-bubble {
+    font-size: 13px;
+  }
+
+  .message-image {
+    max-width: 180px;
+  }
+
+  .chat-input {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px 12px;
+    align-items: end;
+  }
+
+  .input-toolbar {
+    gap: 2px;
+  }
+
+  .input-area {
+    min-width: 0;
+  }
+
+  .emoji-panel,
+  .quick-reply-panel,
+  .search-message-panel {
+    width: calc(100vw - 32px);
+    max-width: 360px;
+  }
+}
+
+@media (max-width: 420px) {
+  .chat-input {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .input-toolbar {
+    grid-column: 1 / -1;
+  }
+
+  .message-item {
+    max-width: 94%;
+  }
+}
+
 /* 表情面板 */
 .emoji-panel {
   width: 320px;
@@ -2169,6 +2327,20 @@ onMounted(async () => {
 .blocked-msg {
   color: #d03050;
   font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .emoji-panel,
+  .quick-reply-panel,
+  .search-message-panel {
+    width: calc(100vw - 32px);
+    max-width: 360px;
+  }
+
+  .profile-header,
+  .private-key-tools {
+    flex-wrap: wrap;
+  }
 }
 
 </style>

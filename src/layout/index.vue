@@ -100,13 +100,21 @@
         <div v-else-if="shouldFullyHideSider && collapsed" class="header-left">
           <button
             class="header-brand"
+            :class="{ 'header-brand--mobile-trigger': isMobileSiderViewport }"
             type="button"
             :title="collapsed ? '展开菜单' : '隐藏菜单'"
             @click="toggleSider"
           >
-            <img v-if="siteLogo" :src="siteLogo" class="header-brand-img" alt="Logo" />
-            <span v-else class="header-brand-icon">{{ siteName.charAt(0) }}</span>
-            <span class="header-brand-text">BugC</span>
+            <template v-if="isMobileSiderViewport">
+              <n-icon size="22">
+                <MenuOutline />
+              </n-icon>
+            </template>
+            <template v-else>
+              <img v-if="siteLogo" :src="siteLogo" class="header-brand-img" alt="Logo" />
+              <span v-else class="header-brand-icon">{{ siteName.charAt(0) }}</span>
+              <span class="header-brand-text">{{ siteName }}</span>
+            </template>
           </button>
         </div>
         <div v-else class="header-left header-left-empty"></div>
@@ -252,7 +260,56 @@
                 >
                   <n-icon size="18"><CogOutline /></n-icon>
                   <span>后台管理</span>
-                  <n-icon size="14" class="user-menu-arrow"><ChevronBackOutline /></n-icon>
+                  <n-icon size="14" class="user-menu-arrow">
+                    <ChevronDownOutline v-if="isMobileSiderViewport" />
+                    <ChevronBackOutline v-else />
+                  </n-icon>
+                </div>
+
+                <div v-if="activeBackendMenu && isMobileSiderViewport" class="user-menu-mobile-subtree">
+                  <template v-for="option in backendManagementOptions" :key="option.key">
+                    <button
+                      v-if="!option.children"
+                      class="user-menu-item user-menu-item--nested"
+                      type="button"
+                      @click="handleUserMenuCommand(String(option.key))"
+                    >
+                      <n-icon v-if="getOptionIcon(option)" size="18">
+                        <component :is="getOptionIcon(option)" />
+                      </n-icon>
+                      <span>{{ option.label }}</span>
+                    </button>
+                    <template v-else>
+                      <div
+                        class="user-menu-item user-menu-item--submenu user-menu-item--nested"
+                        :class="{ 'user-menu-item--active': activeBackendGroupKey === String(option.key) }"
+                        @click="toggleBackendGroup(String(option.key))"
+                      >
+                        <n-icon v-if="getOptionIcon(option)" size="18">
+                          <component :is="getOptionIcon(option)" />
+                        </n-icon>
+                        <span>{{ option.label }}</span>
+                        <n-icon size="14" class="user-menu-arrow"><ChevronDownOutline /></n-icon>
+                      </div>
+                      <div
+                        v-if="activeBackendGroupKey === String(option.key)"
+                        class="user-menu-mobile-children"
+                      >
+                        <button
+                          v-for="child in option.children"
+                          :key="child.key"
+                          class="user-menu-item user-menu-item--child"
+                          type="button"
+                          @click="handleUserMenuCommand(String(child.key))"
+                        >
+                          <n-icon v-if="getOptionIcon(child)" size="18">
+                            <component :is="getOptionIcon(child)" />
+                          </n-icon>
+                          <span>{{ child.label }}</span>
+                        </button>
+                      </div>
+                    </template>
+                  </template>
                 </div>
 
                 <div class="user-menu-divider"></div>
@@ -263,7 +320,7 @@
                 </button>
               </div>
 
-              <div v-if="activeBackendMenu" class="user-menu-panel user-menu-panel--submenu">
+              <div v-if="activeBackendMenu && !isMobileSiderViewport" class="user-menu-panel user-menu-panel--submenu">
                 <template v-for="option in backendManagementOptions" :key="option.key">
                   <button
                     v-if="!option.children"
@@ -291,7 +348,7 @@
                 </template>
               </div>
 
-              <div v-if="activeBackendMenu && activeBackendGroupOption" class="user-menu-panel user-menu-panel--submenu">
+              <div v-if="activeBackendMenu && activeBackendGroupOption && !isMobileSiderViewport" class="user-menu-panel user-menu-panel--submenu">
                 <button
                   v-for="option in activeBackendGroupOption.children"
                   :key="option.key"
@@ -335,7 +392,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, h, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NIcon, useMessage, useDialog, type DropdownOption, type MenuOption } from 'naive-ui'
 import {
@@ -382,6 +439,7 @@ import TabBar from '@/components/TabBar.vue'
 import { noticeApi, chatApi, type SysNotice, type ChatMessage } from '@/api/message'
 import { iconMap as externalIconMap } from '@/utils/icons'
 import { siteDefaults } from '@/config/app'
+import { useResponsive } from '@/composables/useResponsive'
 
 const route = useRoute()
 const router = useRouter()
@@ -399,11 +457,8 @@ const siteLogo = computed(() => siteStore.siteLogo)
 // 注册全局message
 window.$message = message
 
-const mobileSiderBreakpoint = 768
 const collapsed = ref(false)
-const isMobileSiderViewport = ref(
-  typeof window !== 'undefined' ? window.innerWidth <= mobileSiderBreakpoint : false
-)
+const { isMobile: isMobileSiderViewport } = useResponsive()
 let lastMobileSiderViewport = isMobileSiderViewport.value
 const showProfileModal = ref(false)
 const showPasswordModal = ref(false)
@@ -448,9 +503,8 @@ const headerStyle = computed(() => {
 })
 
 function syncMobileSiderState(force = false) {
-  const nextIsMobile = window.innerWidth <= mobileSiderBreakpoint
+  const nextIsMobile = isMobileSiderViewport.value
   const viewportChanged = nextIsMobile !== lastMobileSiderViewport
-  isMobileSiderViewport.value = nextIsMobile
   lastMobileSiderViewport = nextIsMobile
   if (themeStore.siderPosition === 'top') {
     return
@@ -463,14 +517,16 @@ function syncMobileSiderState(force = false) {
 // 初始化WebSocket和加载未读数
 onMounted(() => {
   syncMobileSiderState(true)
-  window.addEventListener('resize', syncMobileSiderState)
   messageStore.initWebSocket()
   loadUnreadCount()
 })
 
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', syncMobileSiderState)
-})
+watch(
+  isMobileSiderViewport,
+  () => {
+    syncMobileSiderState()
+  }
+)
 
 watch(
   () => themeStore.siderPosition,
@@ -697,13 +753,13 @@ const siderToggleStyle = computed(() => {
   const edge = collapsed.value ? siderCollapsedWidth.value : 240
   const offset = `${Math.max(12, edge - 18)}px`
 
-  return layoutConfig.siderPosition === 'right'
+  return layoutConfig.value.siderPosition === 'right'
     ? { right: offset }
     : { left: offset }
 })
 
 const siderToggleIcon = computed(() => {
-  const isRightSider = layoutConfig.siderPosition === 'right'
+  const isRightSider = layoutConfig.value.siderPosition === 'right'
   if (isRightSider) {
     return collapsed.value ? ChevronBackOutline : ChevronForwardOutline
   }
@@ -783,6 +839,7 @@ function isSettingMenu(menu: typeof userStore.menus[number]): boolean {
     path === 'message' ||
     path === '/monitor/online' ||
     path === '/monitor/api-access' ||
+    path === '/system/config' ||
     path === '/system' ||
     path === '/org' ||
     path === '/log' ||
@@ -791,7 +848,8 @@ function isSettingMenu(menu: typeof userStore.menus[number]): boolean {
 }
 
 const userShortcutMenuOrder = [
-  '/message/notice'
+  '/message/notice',
+  '/system/config'
 ]
 
 const systemLogMenuOrder = [
@@ -811,10 +869,6 @@ const systemManagementMenuOrder = [
 const orgManagementMenuOrder = [
   '/org/dept',
   '/org/post'
-]
-
-const systemConfigMenuOrder = [
-  '/system/config'
 ]
 
 // 将后台菜单数据转换为 Naive UI 菜单格式
@@ -878,10 +932,6 @@ const userShortcutOptions = computed<DropdownOption[]>(() => {
   return getDropdownOptionsByPath(userShortcutMenuOrder)
 })
 
-const systemConfigOptions = computed<DropdownOption[]>(() => {
-  return getDropdownOptionsByPath(systemConfigMenuOrder)
-})
-
 const systemLogOptions = computed<DropdownOption[]>(() => {
   return getDropdownOptionsByPath(systemLogMenuOrder)
 })
@@ -918,8 +968,6 @@ const backendManagementOptions = computed<DropdownOption[]>(() => {
       children: systemManagementOptions.value
     })
   }
-
-  options.push(...systemConfigOptions.value)
 
   return options
 })
@@ -1302,6 +1350,7 @@ body.dark-theme .layout-header {
 .header-brand {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
   height: 44px;
   padding: 0 12px;
@@ -1314,6 +1363,22 @@ body.dark-theme .layout-header {
 
   &:hover {
     background: #F3F4F6;
+  }
+}
+
+.header-brand--mobile-trigger {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--primary-color, #2E5CF6);
+  background: color-mix(in srgb, var(--primary-color, #2E5CF6) 10%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--primary-color, #2E5CF6) 22%, #e5e7eb);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary-color, #2E5CF6) 12%, transparent);
+
+  &:hover {
+    color: var(--primary-color, #2E5CF6);
+    background: color-mix(in srgb, var(--primary-color, #2E5CF6) 14%, #ffffff);
   }
 }
 
@@ -1357,6 +1422,15 @@ body.dark-theme .header-brand {
 
 body.dark-theme .header-brand-icon {
   background: #27272a;
+}
+
+body.dark-theme .header-brand--mobile-trigger {
+  background: color-mix(in srgb, var(--primary-color, #60a5fa) 14%, #18181c);
+  border-color: color-mix(in srgb, var(--primary-color, #60a5fa) 28%, #3f3f46);
+
+  &:hover {
+    background: color-mix(in srgb, var(--primary-color, #60a5fa) 20%, #18181c);
+  }
 }
 
 .header-right {
@@ -1597,8 +1671,24 @@ body.dark-theme .user-menu-item--active {
   cursor: pointer;
 }
 
+.user-menu-item--nested {
+  padding-left: 18px;
+}
+
+.user-menu-item--child {
+  padding-left: 32px;
+}
+
 .user-menu-arrow {
   margin-left: auto;
+}
+
+.user-menu-mobile-subtree {
+  display: none;
+}
+
+.user-menu-mobile-children {
+  display: none;
 }
 
 .user-menu-divider {
@@ -1621,7 +1711,7 @@ body.dark-theme .user-name {
   color: #ffffffd1;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   .layout.layout-mobile {
     :deep(.n-layout-scroll-container) {
       overflow-x: hidden;
@@ -1694,6 +1784,11 @@ body.dark-theme .user-name {
     padding: 0 4px;
   }
 
+  .header-brand--mobile-trigger {
+    flex: 0 0 40px;
+    padding: 0;
+  }
+
   .header-right {
     width: auto;
     gap: 6px;
@@ -1712,6 +1807,58 @@ body.dark-theme .user-name {
 
   .message-popover {
     width: min(360px, calc(100vw - 24px));
+  }
+
+  :global(.user-menu-popover-shell.n-popover) {
+    max-width: calc(100vw - 20px);
+  }
+
+  :global(.user-menu-popover) {
+    width: 168px !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 28px) !important;
+  }
+
+  :global(.user-menu-popover .user-menu-cascade) {
+    display: block;
+    width: 100%;
+    max-height: calc(100dvh - 76px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  :global(.user-menu-popover .user-menu-panel) {
+    width: 100%;
+    padding: 4px;
+  }
+
+  :global(.user-menu-popover .user-menu-mobile-subtree),
+  :global(.user-menu-popover .user-menu-mobile-children) {
+    display: block;
+  }
+
+  :global(.user-menu-popover .user-menu-mobile-subtree) {
+    padding: 2px 0 2px 8px;
+    border-left: 1px solid #e5e7eb;
+  }
+
+  :global(body.dark-theme .user-menu-popover .user-menu-mobile-subtree) {
+    border-left-color: #3f3f46;
+  }
+
+  :global(.user-menu-popover .user-menu-mobile-children) {
+    padding-left: 6px;
+  }
+
+  :global(.user-menu-popover .user-menu-item) {
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  :global(.user-menu-popover .user-menu-item span) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   :deep(.tab-bar) {

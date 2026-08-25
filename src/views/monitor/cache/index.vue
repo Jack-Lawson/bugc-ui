@@ -26,11 +26,11 @@
       </n-grid>
     </div>
 
-    <n-card title="缓存键列表" style="margin-top: 16px">
+    <n-card class="cache-key-card" title="缓存键列表">
       <div class="search-form">
         <n-form inline label-placement="left">
           <n-form-item label="键名模式">
-            <n-input v-model:value="searchPattern" placeholder="请输入键名模式" clearable style="width: 300px" />
+            <n-input v-model:value="searchPattern" placeholder="请输入键名模式" clearable />
           </n-form-item>
           <n-form-item>
             <n-button type="primary" @click="handleSearch">
@@ -41,21 +41,47 @@
         </n-form>
       </div>
 
-      <n-data-table
-        :columns="columns"
-        :data="keys"
-        :loading="keysLoading"
-        :row-key="(row: string) => row"
-        remote
-      />
+      <ResponsiveDataView>
+        <n-data-table
+          :columns="columns"
+          :data="keys"
+          :loading="keysLoading"
+          :row-key="(row: string) => row"
+          remote
+        />
+        <template #mobile>
+          <n-spin :show="keysLoading">
+            <div v-if="keys.length" class="cache-key-mobile-list">
+              <article v-for="key in keys" :key="key" class="cache-key-mobile-card">
+                <div class="cache-key-mobile-card__body">
+                  <span class="cache-key-mobile-card__label">键名</span>
+                  <code>{{ key }}</code>
+                </div>
+                <div class="cache-key-mobile-card__actions">
+                  <n-button size="small" secondary type="primary" @click="handleView(key)">
+                    <template #icon><n-icon><EyeOutline /></n-icon></template>
+                    查看
+                  </n-button>
+                  <n-button size="small" secondary type="error" @click="handleDelete(key)">
+                    <template #icon><n-icon><TrashOutline /></n-icon></template>
+                    删除
+                  </n-button>
+                </div>
+              </article>
+            </div>
+            <n-empty v-else description="暂无缓存键" />
+          </n-spin>
+        </template>
+      </ResponsiveDataView>
+
       <div class="pagination">
         <n-pagination
           v-model:page="pagination.page"
           v-model:page-size="pagination.pageSize"
           :item-count="pagination.itemCount"
           :page-sizes="pagination.pageSizes"
-          show-size-picker
-          show-quick-jumper
+          :show-size-picker="!isMobile"
+          :show-quick-jumper="!isMobile"
           @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         >
@@ -64,8 +90,8 @@
       </div>
     </n-card>
 
-    <n-modal v-model:show="detailVisible" preset="card" title="缓存详情" style="width: 800px">
-      <n-descriptions :column="1" label-placement="left" bordered>
+    <ResponsiveModal v-model:show="detailVisible" title="缓存详情" :width="800">
+      <n-descriptions :column="1" :label-placement="isMobile ? 'top' : 'left'" bordered>
         <n-descriptions-item label="键名">
           {{ cacheDetail.key }}
         </n-descriptions-item>
@@ -81,18 +107,21 @@
           </n-scrollbar>
         </n-descriptions-item>
       </n-descriptions>
-    </n-modal>
+    </ResponsiveModal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, h, onMounted, onUnmounted } from 'vue'
-import { NButton, NSpace, NTag, NInput, NForm, NFormItem, NIcon, NCard, NGrid, NGi, NDescriptions, NDescriptionsItem, NDataTable, NModal, NScrollbar, NCode, useMessage, useDialog, type DataTableColumns } from 'naive-ui'
+import { NButton, NSpace, NTag, NInput, NForm, NFormItem, NIcon, NCard, NGrid, NGi, NDescriptions, NDescriptionsItem, NDataTable, NSpin, NEmpty, NScrollbar, NCode, useMessage, useDialog, type DataTableColumns } from 'naive-ui'
 import { SearchOutline, EyeOutline, TrashOutline } from '@vicons/ionicons5'
 import { cacheApi } from '@/api/monitor'
+import { ResponsiveDataView, ResponsiveModal } from '@/components/responsive'
+import { useResponsive } from '@/composables/useResponsive'
 
 const message = useMessage()
 const dialog = useDialog()
+const { isMobile } = useResponsive()
 
 const keys = ref<string[]>([])
 const keysLoading = ref(false)
@@ -300,6 +329,7 @@ onUnmounted(() => {
 <style lang="scss" scoped>
 .stats-section { margin-bottom: 16px; }
 .chart-box { height: 260px; }
+.cache-key-card { margin-top: 16px; }
 .pagination {
   display: flex;
   justify-content: flex-end;
@@ -309,7 +339,71 @@ onUnmounted(() => {
   margin-top: 12px;
 }
 
+.cache-key-mobile-list {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cache-key-mobile-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.cache-key-mobile-card__body {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cache-key-mobile-card__label {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.cache-key-mobile-card code {
+  min-width: 0;
+  padding: 8px;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #374151;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.cache-key-mobile-card__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cache-key-mobile-card__actions :deep(.n-button) {
+  width: 100%;
+}
+
 @media (max-width: 768px) {
+  .stats-section {
+    margin-bottom: 10px;
+  }
+
+  .chart-box {
+    height: 220px;
+  }
+
+  .cache-key-card :deep(.n-card__content) {
+    padding: 12px;
+  }
+
   .search-form :deep(.n-form) {
     width: 100%;
   }
@@ -324,6 +418,14 @@ onUnmounted(() => {
 
   .pagination {
     justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  .chart-box {
+    height: 200px;
   }
 }
 </style>

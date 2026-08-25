@@ -678,12 +678,19 @@ function goRegister() {
 
 /* ==================== 安全验证登录卡片 ==================== */
 .login-page {
+  --login-primary: var(--primary-color, #2E5CF6);
+  --login-primary-soft: color-mix(in srgb, var(--login-primary) 10%, #ffffff);
+  --login-primary-muted: color-mix(in srgb, var(--login-primary) 18%, #ffffff);
+  --login-primary-hover: color-mix(in srgb, var(--login-primary) 82%, #ffffff);
+  --login-primary-pressed: color-mix(in srgb, var(--login-primary) 86%, #111827);
+  --login-primary-glow: color-mix(in srgb, var(--login-primary) 22%, transparent);
+  --login-primary-wash: color-mix(in srgb, var(--login-primary) 66%, #ffffff);
   min-height: 100vh;
   display: flex;
   justify-content: center;
   padding: var(--login-page-pad-y) var(--login-page-pad-x);
   overflow: auto;
-  background: linear-gradient(135deg, #6c8df2 0%, #a66be2 100%);
+  background: linear-gradient(135deg, var(--login-primary-wash) 0%, var(--login-primary) 100%);
 }
 
 .login-card {
@@ -705,7 +712,7 @@ function goRegister() {
   border-radius: 50%;
   color: #fff;
   font-size: var(--login-lock-font-size);
-  background: linear-gradient(135deg, #6c82f4 0%, #9f71dd 100%);
+  background: linear-gradient(135deg, var(--login-primary-hover) 0%, var(--login-primary) 100%);
 }
 
 .form-title {
@@ -754,11 +761,11 @@ function goRegister() {
   --n-caret-color: #111827;
   --n-placeholder-color: #8a8f98;
   --n-icon-color: #8a8f98;
-  --n-icon-color-hover: #6c82f4;
+  --n-icon-color-hover: var(--login-primary);
   --n-border: 1px solid #d9dce3;
-  --n-border-hover: 1px solid #8aa0f7;
-  --n-border-focus: 1px solid #7c8ff3;
-  --n-box-shadow-focus: 0 0 0 2px rgba(124, 143, 243, 0.14);
+  --n-border-hover: 1px solid var(--login-primary-hover);
+  --n-border-focus: 1px solid var(--login-primary);
+  --n-box-shadow-focus: 0 0 0 2px var(--login-primary-glow);
   font-size: var(--login-control-font-size);
 }
 
@@ -786,7 +793,7 @@ function goRegister() {
   height: var(--login-captcha-height);
   border: 0;
   border-radius: var(--login-control-radius);
-  background: #f1f4ff;
+  background: var(--login-primary-soft);
 }
 
 .captcha-img {
@@ -801,18 +808,18 @@ function goRegister() {
 }
 
 .captcha-refresh {
-  --n-text-color: #6c82f4;
-  --n-text-color-hover: #5c70ea;
-  --n-text-color-pressed: #5265db;
-  --n-text-color-focus: #5c70ea;
+  --n-text-color: var(--login-primary);
+  --n-text-color-hover: var(--login-primary-hover);
+  --n-text-color-pressed: var(--login-primary-pressed);
+  --n-text-color-focus: var(--login-primary-hover);
   width: var(--login-captcha-button-width);
-  color: #6c82f4;
-  background: #f1f4ff;
+  color: var(--login-primary);
+  background: var(--login-primary-soft);
   border: 0;
 
   &:hover {
-    color: #5c70ea;
-    background: #e8edff;
+    color: var(--login-primary-hover);
+    background: var(--login-primary-muted);
   }
 }
 
@@ -838,10 +845,10 @@ function goRegister() {
 
 :deep(.n-checkbox) {
   --n-text-color: #4b5563;
-  --n-color-checked: #7c82f6;
-  --n-border-checked: 1px solid #7c82f6;
-  --n-border-focus: 1px solid #7c82f6;
-  --n-box-shadow-focus: 0 0 0 2px rgba(124, 130, 246, 0.16);
+  --n-color-checked: var(--login-primary);
+  --n-border-checked: 1px solid var(--login-primary);
+  --n-border-focus: 1px solid var(--login-primary);
+  --n-box-shadow-focus: 0 0 0 2px var(--login-primary-glow);
   font-size: var(--login-small-font-size);
 }
 
@@ -861,13 +868,13 @@ function goRegister() {
 }
 
 .register-link {
-  color: #7b70f0;
+  color: var(--login-primary);
   font-size: var(--login-small-font-size);
   text-decoration: none;
   cursor: pointer;
 
   &:hover {
-    color: #6b6feb;
+    color: var(--login-primary-hover);
     text-decoration: underline;
   }
 }
@@ -885,8 +892,8 @@ function goRegister() {
   --n-border-pressed: 0 !important;
   --n-border-focus: 0 !important;
   height: var(--login-control-height);
-  background: linear-gradient(90deg, #6c82f4 0%, #a66be2 100%) !important;
-  box-shadow: 0 8px 18px rgba(124, 130, 246, 0.24);
+  background: linear-gradient(90deg, var(--login-primary-hover) 0%, var(--login-primary) 100%) !important;
+  box-shadow: 0 8px 18px var(--login-primary-glow);
 }
 
 .compact-captcha {
@@ -906,7 +913,7 @@ function goRegister() {
   isolation: isolate;
   background:
     radial-gradient(circle at 34% 38%, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 34%),
-    linear-gradient(135deg, #6c8cf1 0%, #7e82ed 48%, #a66ee2 100%) !important;
+    linear-gradient(135deg, var(--login-primary-wash) 0%, var(--login-primary-hover) 48%, var(--login-primary) 100%) !important;
 }
 
 .login-page::before {
@@ -917,7 +924,7 @@ function goRegister() {
   pointer-events: none;
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 44%),
-    radial-gradient(circle at 52% 50%, rgba(80, 101, 215, 0.12) 0%, rgba(80, 101, 215, 0) 42%);
+    radial-gradient(circle at 52% 50%, var(--login-primary-glow) 0%, transparent 42%);
 }
 
 .admin-login-page > :not(.login-card):not(.slider-modal) {
@@ -928,11 +935,11 @@ function goRegister() {
   border-radius: 12px !important;
   background: #fff !important;
   box-sizing: border-box !important;
-  box-shadow: 0 24px 64px rgba(83, 75, 155, 0.22) !important;
+  box-shadow: 0 24px 64px var(--login-primary-glow) !important;
 }
 
 .login-lock {
-  background: linear-gradient(135deg, #6e82f4 0%, #9b70df 100%) !important;
+  background: linear-gradient(135deg, var(--login-primary-hover) 0%, var(--login-primary) 100%) !important;
 }
 
 .form-title {
@@ -953,9 +960,9 @@ function goRegister() {
   --n-text-color-disabled: #111827 !important;
   --n-placeholder-color: #8a8f98 !important;
   --n-border: 1px solid #d7dbe3 !important;
-  --n-border-hover: 1px solid #b8c2dd !important;
-  --n-border-focus: 1px solid #8a91f2 !important;
-  --n-box-shadow-focus: 0 0 0 2px rgba(124, 130, 246, 0.12) !important;
+  --n-border-hover: 1px solid var(--login-primary-hover) !important;
+  --n-border-focus: 1px solid var(--login-primary) !important;
+  --n-box-shadow-focus: 0 0 0 2px var(--login-primary-glow) !important;
 }
 
 :deep(.n-input .n-input-wrapper),
@@ -983,19 +990,19 @@ function goRegister() {
 
 :deep(.n-checkbox) {
   --n-text-color: #4b5563 !important;
-  --n-color-checked: #7c82f6 !important;
-  --n-border-checked: 1px solid #7c82f6 !important;
+  --n-color-checked: var(--login-primary) !important;
+  --n-border-checked: 1px solid var(--login-primary) !important;
   --n-check-mark-color: #fff !important;
 }
 
 .register-link,
 .captcha-refresh {
-  color: #7085ff !important;
+  color: var(--login-primary) !important;
 }
 
 .login-button {
   color: #fff !important;
-  background: linear-gradient(90deg, #6d82f4 0%, #a36fe2 100%) !important;
+  background: linear-gradient(90deg, var(--login-primary-hover) 0%, var(--login-primary) 100%) !important;
   box-shadow: none !important;
 }
 

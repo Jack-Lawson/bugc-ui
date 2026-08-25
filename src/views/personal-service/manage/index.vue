@@ -10,7 +10,7 @@
             <n-input v-model:value="query.code" placeholder="请输入服务编码" clearable />
           </n-form-item>
           <n-form-item label="状态">
-            <n-select v-model:value="query.status" placeholder="请选择状态" :options="statusOptions" clearable style="width: 120px" />
+            <n-select v-model:value="query.status" placeholder="请选择状态" :options="statusOptions" clearable />
           </n-form-item>
           <n-form-item>
             <n-space>
@@ -27,7 +27,7 @@
         </n-form>
       </div>
 
-      <div v-if="enabledServices.length" class="service-entry-grid">
+      <div v-if="enabledServices.length && !isMobile" class="service-entry-grid">
         <button
           v-for="service in enabledServices"
           :key="service.id || service.code"
@@ -52,15 +52,67 @@
         </n-button>
       </div>
 
-      <n-data-table :columns="columns" :data="services" :loading="loading" :row-key="row => row.id" remote />
+      <n-data-table
+        v-if="!isMobile"
+        :columns="columns"
+        :data="services"
+        :loading="loading"
+        :row-key="row => row.id"
+        remote
+      />
+      <div v-else class="service-mobile-list">
+        <n-spin :show="loading">
+          <div v-if="services.length" class="service-mobile-grid">
+            <article
+              v-for="service in services"
+              :key="service.id || service.code"
+              class="service-mobile-card"
+            >
+              <div class="service-mobile-card__header">
+                <span class="service-entry__icon">
+                  <n-icon><OpenOutline /></n-icon>
+                </span>
+                <span class="service-mobile-card__title">
+                  <strong>{{ service.name }}</strong>
+                  <span>{{ service.code }}</span>
+                </span>
+                <n-tag :type="service.status === 1 ? 'success' : 'default'" size="small">
+                  {{ service.status === 1 ? '启用' : '禁用' }}
+                </n-tag>
+              </div>
+              <div class="service-mobile-card__meta">
+                <span>入口</span>
+                <code>{{ getAccessPath(service) }}</code>
+              </div>
+              <div class="service-mobile-card__meta">
+                <span>地址</span>
+                <code>{{ service.targetBaseUrl || '-' }}</code>
+              </div>
+              <div class="service-mobile-card__actions">
+                <n-button size="small" type="primary" @click="openService(service)">
+                  <template #icon><n-icon><OpenOutline /></n-icon></template>
+                  打开
+                </n-button>
+                <n-button size="small" :loading="isTesting(service)" @click="handleTest(service)">
+                  <template #icon><n-icon><FlashOutline /></n-icon></template>
+                  测试
+                </n-button>
+                <n-button size="small" @click="handleEdit(service)">编辑</n-button>
+                <n-button size="small" type="error" @click="handleDelete(service)">删除</n-button>
+              </div>
+            </article>
+          </div>
+          <n-empty v-else description="暂无服务" />
+        </n-spin>
+      </div>
       <div class="pagination-container">
         <n-pagination
           v-model:page="pagination.page"
           v-model:page-size="pagination.pageSize"
           :item-count="pagination.itemCount"
           :page-sizes="[10, 20, 50, 100]"
-          show-size-picker
-          show-quick-jumper
+          :show-size-picker="!isMobile"
+          :show-quick-jumper="!isMobile"
           @update:page="loadServices"
           @update:page-size="handlePageSizeChange"
         >
@@ -70,7 +122,7 @@
     </n-card>
 
     <n-modal v-model:show="showModal" preset="card" :title="modalTitle" style="width: 680px" :mask-closable="false">
-      <n-form ref="formRef" :model="formData" :rules="rules" label-placement="left" label-width="130">
+      <n-form ref="formRef" :model="formData" :rules="rules" :label-placement="isMobile ? 'top' : 'left'" label-width="130">
         <n-form-item label="服务名称" path="name">
           <n-input v-model:value="formData.name" placeholder="例如：路由器管理" />
         </n-form-item>
@@ -143,10 +195,12 @@ import { NButton, NIcon, NSpace, NTag, useDialog, useMessage, type DataTableColu
 import { AddOutline, FlashOutline, OpenOutline, RefreshOutline, SearchOutline } from '@vicons/ionicons5'
 import { useRouter } from 'vue-router'
 import { personalServiceApi, type PersonalService } from '@/api/personalService'
+import { useResponsive } from '@/composables/useResponsive'
 
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
+const { isMobile } = useResponsive()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -497,6 +551,85 @@ onMounted(loadServices)
   white-space: nowrap;
 }
 
+.service-mobile-list {
+  min-width: 0;
+}
+
+.service-mobile-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.service-mobile-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.service-mobile-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.service-mobile-card__title {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+
+  strong,
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    color: #0f172a;
+    font-size: 15px;
+  }
+
+  span {
+    color: #64748b;
+    font-size: 12px;
+  }
+}
+
+.service-mobile-card__meta {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  color: #64748b;
+  font-size: 12px;
+
+  code {
+    min-width: 0;
+    padding: 0;
+    color: #334155;
+    background: transparent;
+    overflow-wrap: anywhere;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+}
+
+.service-mobile-card__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+
+  :deep(.n-button) {
+    width: 100%;
+  }
+}
+
 .pagination-container {
   display: flex;
   justify-content: flex-end;
@@ -513,6 +646,27 @@ onMounted(loadServices)
 @media (max-width: 900px) {
   .switch-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .page-layout :deep(.n-card__content) {
+    padding: 12px;
+  }
+
+  .search-form,
+  .table-toolbar {
+    margin-bottom: 10px;
+  }
+
+  .table-toolbar :deep(.n-button) {
+    width: 100%;
+  }
+
+  .pagination-container {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px;
   }
 }
 </style>

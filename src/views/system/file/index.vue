@@ -1,6 +1,6 @@
 <template>
   <div class="page-container">
-    <div class="file-layout">
+    <div class="file-layout" :class="[`file-layout--${activeType}`, { 'file-layout--mobile': isMobile }]">
       <n-card class="file-list-card" size="small">
         <template #header>
           <div class="group-strip">
@@ -304,8 +304,8 @@
                 v-model:page-size="pagination.pageSize"
                 :item-count="pagination.itemCount"
                 :page-sizes="[10, 20, 50, 100]"
-                show-size-picker
-                show-quick-jumper
+                :show-size-picker="!isMobile"
+                :show-quick-jumper="!isMobile"
                 @update:page="loadFiles"
                 @update:page-size="handlePageSizeChange"
             >
@@ -446,11 +446,13 @@ import {
 import {fileApi, fileGroupApi, type SysFile, type SysFileGroup} from '@/api/system'
 import {useUserStore} from '@/stores/user'
 import {normalizeApiAssetUrl} from '@/config/app'
+import {useResponsive} from '@/composables/useResponsive'
 
 const message = useMessage()
 const dialog = useDialog()
 const route = useRoute()
 const userStore = useUserStore()
+const {isMobile} = useResponsive()
 const hasPermission = (permission: string) => userStore.hasPermission(permission)
 
 type FileCategory = 'image' | 'video' | 'file'
@@ -1374,7 +1376,7 @@ watch(
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .file-layout {
     min-width: 0;
   }
@@ -1439,6 +1441,11 @@ watch(
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+  }
+
+  .file-layout--image .toolbar-left,
+  .file-layout--video .toolbar-left {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .toolbar-left :deep(.n-upload),

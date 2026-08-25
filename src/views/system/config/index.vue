@@ -2545,4 +2545,31 @@ body.dark-theme .config-card {
     margin-top: 20px;
   }
 }
+
+@media (max-width: 480px) {
+  .config-content {
+    :deep(.n-form-item) {
+      display: block !important;
+    }
+
+    :deep(.n-form-item-label) {
+      justify-content: flex-start;
+      width: auto !important;
+      padding: 0 0 6px !important;
+      text-align: left;
+    }
+  }
+
+  .sms-config-layout,
+  .wechat-config-layout,
+  .payment-config-layout,
+  .menu-layout {
+    display: block;
+  }
+
+  .sms-config-right,
+  .menu-config {
+    min-width: 0;
+  }
+}
 </style>

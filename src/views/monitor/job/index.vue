@@ -77,12 +77,49 @@
       </div>
 
       <n-data-table
+        v-if="!isMobile"
         :columns="columns"
         :data="tableData"
         :loading="loading"
         :row-key="(row: SysJob) => row.id"
         remote
       />
+      <div v-else class="job-mobile-list">
+        <n-spin :show="loading">
+          <div v-if="tableData.length" class="job-mobile-grid">
+            <article v-for="job in tableData" :key="job.id" class="job-mobile-card">
+              <div class="job-mobile-card__header">
+                <div class="job-mobile-card__title">
+                  <strong>{{ job.jobName }}</strong>
+                  <span>{{ job.jobGroup }}</span>
+                </div>
+                <n-tag :type="job.status === 1 ? 'success' : 'warning'" size="small">
+                  {{ jobStatusText(job.status) }}
+                </n-tag>
+              </div>
+              <div class="job-mobile-card__meta">
+                <span>调用目标</span>
+                <code>{{ job.invokeTarget || '-' }}</code>
+              </div>
+              <div class="job-mobile-card__meta">
+                <span>cron</span>
+                <code>{{ job.cronExpression || '-' }}</code>
+              </div>
+              <div class="job-mobile-card__meta">
+                <span>并发</span>
+                <span>{{ job.concurrent === 0 ? '允许' : '禁止' }}</span>
+              </div>
+              <div class="job-mobile-card__actions">
+                <n-button size="small" @click="handleShowLog(job)">调度日志</n-button>
+                <n-button v-if="hasPermission('monitor:job:edit')" size="small" @click="handleRun(job)">执行</n-button>
+                <n-button v-if="hasPermission('monitor:job:edit')" size="small" @click="handleEdit(job)">编辑</n-button>
+                <n-button v-if="hasPermission('monitor:job:delete')" size="small" type="error" @click="handleDelete(job)">删除</n-button>
+              </div>
+            </article>
+          </div>
+          <n-empty v-else description="暂无任务" />
+        </n-spin>
+      </div>
 
       <div class="pagination-container" style="display: flex; justify-content: flex-end; margin-top: 12px">
         <n-pagination
@@ -90,8 +127,8 @@
           v-model:page-size="pagination.pageSize"
           :item-count="pagination.itemCount"
           :page-sizes="[10, 20, 50, 100]"
-          show-size-picker
-          show-quick-jumper
+          :show-size-picker="!isMobile"
+          :show-quick-jumper="!isMobile"
           @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         >
@@ -103,7 +140,7 @@
     </n-card>
 
     <n-modal v-model:show="modalVisible" :title="modalTitle" preset="card" style="width: 600px" :mask-closable="false">
-      <n-form ref="formRef" :model="formData" :rules="rules" label-placement="left" label-width="100">
+      <n-form ref="formRef" :model="formData" :rules="rules" :label-placement="isMobile ? 'top' : 'left'" label-width="100">
         <n-form-item label="任务名称" path="jobName">
           <n-input v-model:value="formData.jobName" placeholder="请输入任务名称" />
         </n-form-item>
@@ -186,6 +223,7 @@
         </n-form>
       </div>
       <n-data-table
+        v-if="!isMobile"
         :columns="logColumns"
         :data="logData"
         :loading="logLoading"
@@ -193,14 +231,48 @@
         size="small"
         remote
       />
+      <div v-else class="job-log-mobile-list">
+        <n-spin :show="logLoading">
+          <div v-if="logData.length" class="job-mobile-grid">
+            <article v-for="log in logData" :key="log.id" class="job-mobile-card job-log-mobile-card">
+              <div class="job-mobile-card__header">
+                <div class="job-mobile-card__title">
+                  <strong>{{ log.jobName }}</strong>
+                  <span>{{ log.jobGroup }}</span>
+                </div>
+                <n-tag :type="log.status === 0 ? 'success' : 'error'" size="small">
+                  {{ logStatusText(log.status) }}
+                </n-tag>
+              </div>
+              <div class="job-mobile-card__meta">
+                <span>调用目标</span>
+                <code>{{ log.invokeTarget || '-' }}</code>
+              </div>
+              <div class="job-mobile-card__meta">
+                <span>日志信息</span>
+                <code>{{ log.jobMessage || '-' }}</code>
+              </div>
+              <div class="job-mobile-card__meta">
+                <span>开始时间</span>
+                <span>{{ log.startTime || '-' }}</span>
+              </div>
+              <div class="job-mobile-card__meta">
+                <span>结束时间</span>
+                <span>{{ log.stopTime || '-' }}</span>
+              </div>
+            </article>
+          </div>
+          <n-empty v-else description="暂无日志" />
+        </n-spin>
+      </div>
       <div class="pagination-container" style="display: flex; justify-content: flex-end; margin-top: 12px">
         <n-pagination
           v-model:page="logPagination.page"
           v-model:page-size="logPagination.pageSize"
           :item-count="logPagination.itemCount"
           :page-sizes="[10, 20, 50, 100]"
-          show-size-picker
-          show-quick-jumper
+          :show-size-picker="!isMobile"
+          :show-quick-jumper="!isMobile"
           @update:page="handleLogPageChange"
           @update:page-size="handleLogPageSizeChange"
         >
@@ -219,11 +291,13 @@ import { NButton, NTag, NSpace, NSwitch, NPagination, useMessage, useDialog, typ
 import { SearchOutline, RefreshOutline, AddOutline, ListOutline } from '@vicons/ionicons5'
 import { jobApi, type SysJob, type SysJobLog } from '@/api/monitor'
 import { useUserStore } from '@/stores/user'
+import { useResponsive } from '@/composables/useResponsive'
 
 const message = useMessage()
 const dialog = useDialog()
 const userStore = useUserStore()
 const hasPermission = (permission: string) => userStore.hasPermission(permission)
+const { isMobile } = useResponsive()
 
 const searchForm = reactive({ jobName: '', jobGroup: '', status: null as number | null })
 const statusOptions = [{ label: '正常', value: 1 }, { label: '暂停', value: 0 }]
@@ -323,6 +397,14 @@ const logColumns: DataTableColumns<SysJobLog> = [
   { title: '开始时间', key: 'startTime', width: 180 },
   { title: '结束时间', key: 'stopTime', width: 180 }
 ]
+
+function jobStatusText(status: number) {
+  return status === 1 ? '正常' : '暂停'
+}
+
+function logStatusText(status: number) {
+  return status === 0 ? '成功' : '失败'
+}
 
 function formatDateTime(ms: number) {
   const d = new Date(ms)
@@ -578,18 +660,23 @@ onUnmounted(() => {
 }
 
 .search-form-item {
+  flex: 0 0 220px;
   width: 220px;
+  min-width: 0;
 }
 
 .search-form-item--small {
-  width: 150px;
+  flex-basis: 180px;
+  width: 180px;
 }
 
 .search-form-item--wide {
+  flex-basis: 260px;
   width: 260px;
 }
 
 .search-form-item--range {
+  flex-basis: 330px;
   width: 330px;
 }
 
@@ -598,6 +685,94 @@ onUnmounted(() => {
 .search-form-item :deep(.n-select),
 .search-form-item :deep(.n-date-picker) {
   width: 100%;
+}
+
+.job-mobile-list,
+.job-log-mobile-list {
+  min-width: 0;
+}
+
+.job-mobile-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.job-mobile-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.job-mobile-card__header {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.job-mobile-card__title {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+
+  strong,
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    color: #111827;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  span {
+    color: #6b7280;
+    font-size: 12px;
+  }
+}
+
+.job-mobile-card__meta {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  min-width: 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.45;
+
+  code,
+  span:last-child {
+    min-width: 0;
+    color: #374151;
+    overflow-wrap: anywhere;
+  }
+
+  code {
+    padding: 0;
+    background: transparent;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+}
+
+.job-mobile-card__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+
+  :deep(.n-button) {
+    width: 100%;
+  }
 }
 
 @media (max-width: 768px) {
@@ -632,6 +807,7 @@ onUnmounted(() => {
   .search-form-item--small,
   .search-form-item--wide,
   .search-form-item--range {
+    flex-basis: auto;
     width: 100%;
   }
 
@@ -645,6 +821,28 @@ onUnmounted(() => {
 
   .search-actions :deep(.n-button) {
     flex: 1;
+  }
+
+  .table-toolbar :deep(.n-space) {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px !important;
+  }
+
+  .table-toolbar :deep(.n-button) {
+    width: 100%;
+  }
+
+  .pagination-container {
+    justify-content: flex-start !important;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .job-mobile-card {
+    gap: 8px;
+    padding: 10px;
   }
 }
 
