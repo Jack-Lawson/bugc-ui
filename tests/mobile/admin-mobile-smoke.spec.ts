@@ -209,7 +209,7 @@ async function mockAuthenticatedApi(page: import('@playwright/test').Page) {
                 originalName: 'mobile-preview-demo.jpg',
                 fileName: 'mobile-preview-demo.jpg',
                 filePath: 'images/demo/mobile-preview-demo.jpg',
-                url: '/api/files/images/demo/mobile-preview-demo.jpg',
+                url: '/api/sys/file/preview/9001',
                 fileSize: 1048576,
                 fileType: 'image/jpeg',
                 fileScope: 'image',
@@ -228,6 +228,37 @@ async function mockAuthenticatedApi(page: import('@playwright/test').Page) {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ code: 200, message: 'ok', data })
+      })
+    }
+
+    if (url.pathname === '/api/sys/file/upload/batch' && route.request().method() === 'POST') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 200,
+          message: 'ok',
+          data: {
+            successCount: 1,
+            failCount: 0,
+            successFiles: [
+              {
+                id: 9100,
+                originalName: 'upload-demo.txt',
+                fileName: 'upload-demo.txt',
+                filePath: 'files/demo/upload-demo.txt',
+                url: '/api/files/files/demo/upload-demo.txt',
+                fileSize: 12,
+                fileType: 'text/plain',
+                fileScope: 'file',
+                fileSuffix: '.txt',
+                storageType: 'local',
+                createTime: '2026-08-25 10:00:00'
+              }
+            ],
+            failFiles: []
+          }
+        })
       })
     }
 
@@ -366,7 +397,7 @@ test.describe('后台移动端通用适配', () => {
     await expect(page.locator('.n-base-select-option').filter({ hasText: '暂停' }).last()).toBeVisible()
   })
 
-  test('图片管理列表使用缩略图，点击查看后再加载原图', async ({ page }) => {
+  test('图片管理列表使用缩略图，点击查看后加载预览图', async ({ page }) => {
     await login(page)
 
     await page.goto('/system/image', { waitUntil: 'domcontentloaded', timeout: 20_000 })
@@ -380,7 +411,7 @@ test.describe('后台移动端通用适配', () => {
     const originalImage = page.locator('.preview-image').first()
     await expect(originalImage).toBeVisible()
     const originalSrc = await originalImage.getAttribute('src')
-    expect(originalSrc || '').toContain('/api/files/images/demo/mobile-preview-demo.jpg')
+    expect(originalSrc || '').toContain('/api/sys/file/preview/9001')
 
     await expect(page.locator('.image-preview-scale')).toHaveText('100%')
     await page.getByRole('button', { name: '放大' }).click()
@@ -404,6 +435,38 @@ test.describe('后台移动端通用适配', () => {
     await expect(page.locator('.image-preview-scale')).toHaveText('110%')
     await page.getByRole('button', { name: '重置' }).click()
     await expect(page.locator('.image-preview-scale')).toHaveText('100%')
+  })
+
+  test('图片、视频、文件上传入口统一走批量接口并传递资源库类型', async ({ page }) => {
+    await login(page)
+
+    const cases = [
+      { path: '/system/image', scope: 'image', name: 'demo.jpg', mimeType: 'image/jpeg' },
+      { path: '/system/video', scope: 'video', name: 'demo.mp4', mimeType: 'video/mp4' },
+      { path: '/system/file', scope: 'file', name: 'demo.txt', mimeType: 'text/plain' }
+    ]
+
+    for (const item of cases) {
+      await page.goto(item.path, { waitUntil: 'domcontentloaded', timeout: 20_000 })
+      await expect(page.locator('.page-container').first()).toBeVisible()
+
+      const uploadRequest = page.waitForRequest(request => {
+        if (!request.url().includes('/api/sys/file/upload/batch')) {
+          return false
+        }
+        const postData = request.postData() || ''
+        return postData.includes(`name="fileScope"\r\n\r\n${item.scope}`)
+      })
+
+      await page.locator('.hidden-upload-input').first().setInputFiles({
+        name: item.name,
+        mimeType: item.mimeType,
+        buffer: Buffer.from('upload-demo')
+      })
+
+      await uploadRequest
+      await expect(page.getByText('已上传 1 个文件').last()).toBeVisible()
+    }
   })
 
   test('缓存监控键列表手机端使用卡片展示，桌面端保持表格', async ({ page }, testInfo) => {

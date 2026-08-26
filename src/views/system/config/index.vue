@@ -4,8 +4,8 @@
       <!-- 顶部操作栏 -->
       <div class="">
         <n-space>
-          <n-button type="primary" :loading="saving" @click="handleSave">保存配置</n-button>
-          <n-button @click="handleRefresh">刷新缓存</n-button>
+          <n-button type="primary" :loading="saving" :disabled="refreshing" @click="handleSave">保存配置</n-button>
+          <n-button :loading="refreshing" :disabled="saving" @click="handleRefresh">刷新缓存</n-button>
         </n-space>
       </div>
       <!-- Tab 导航 -->
@@ -1056,7 +1056,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed, watch, h } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed, h } from 'vue'
 import { useMessage, type UploadCustomRequestOptions } from 'naive-ui'
 import {
   ImageOutline,
@@ -1083,6 +1083,7 @@ const configGroups = ref<SysConfigGroup[]>([])
 const activeTab = ref('system')
 const activePushTab = ref('dingtalk')
 const saving = ref(false)
+const refreshing = ref(false)
 const configTabsHost = ref<HTMLElement | null>(null)
 const tabsScrollMax = ref(0)
 const tabsScrollValue = ref(0)
@@ -1124,12 +1125,6 @@ const storageProviderOptions = [
   { label: '阿里云OSS', value: 'aliyun' },
   { label: '腾讯云COS', value: 'tencent' },
   { label: 'RustFS', value: 'rustfs' }
-]
-
-const pushProviderOptions = [
-  { label: '钉钉', value: 'dingtalk' },
-  { label: '飞书', value: 'feishu' },
-  { label: '企业微信', value: 'wechat_work' }
 ]
 
 const alipayGatewayOptions = [
@@ -1487,7 +1482,7 @@ function deleteCurrentMenu() {
 }
 
 // 菜单类型变更
-function handleMenuTypeChange(type: string) {
+function handleMenuTypeChange() {
   if (selectedSubIndex.value >= 0) {
     const menu = menuList.value[selectedMenuIndex.value]
     if (menu.sub_button) {
@@ -1773,6 +1768,7 @@ async function handleTabChange(tab: string) {
 
 // 保存配置
 async function handleSave() {
+  if (saving.value || refreshing.value) return
   saving.value = true
   try {
     await configGroupApi.save(activeTab.value, configs[activeTab.value])
@@ -1800,6 +1796,8 @@ async function handleSave() {
 
 // 刷新缓存
 async function handleRefresh() {
+  if (refreshing.value || saving.value) return
+  refreshing.value = true
   try {
     await configGroupApi.refresh()
     await siteStore.loadConfig()
@@ -1808,6 +1806,8 @@ async function handleRefresh() {
     message.success('缓存刷新成功')
   } catch (error) {
     // 错误已在拦截器处理
+  } finally {
+    refreshing.value = false
   }
 }
 

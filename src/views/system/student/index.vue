@@ -56,7 +56,7 @@
         :data="tableData"
         :loading="loading"
         :pagination="pagination"
-        :row-key="(row) => row.id"
+        :row-key="(row: Student) => row.id ?? row.studentNo"
         :scroll-x="1200"
         @update:page="handlePageChange"
         @update:page-size="handlePageSizeChange"
@@ -258,7 +258,7 @@ async function loadData() {
       pageSize: pagination.pageSize,
       id: searchForm.id || undefined,
       name: searchForm.name || undefined,
-      status: searchForm.status || undefined,
+      status: searchForm.status ?? undefined,
     })
     tableData.value = res.list
     pagination.itemCount = res.total

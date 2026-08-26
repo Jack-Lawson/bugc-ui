@@ -44,9 +44,9 @@
       <ResponsiveDataView>
         <n-data-table
           :columns="columns"
-          :data="keys"
+          :data="keyRows"
           :loading="keysLoading"
-          :row-key="(row: string) => row"
+          :row-key="(row: CacheKeyRow) => row.key"
           remote
         />
         <template #mobile>
@@ -112,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, h, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, h, onMounted, onUnmounted, computed } from 'vue'
 import { NButton, NSpace, NTag, NInput, NForm, NFormItem, NIcon, NCard, NGrid, NGi, NDescriptions, NDescriptionsItem, NDataTable, NSpin, NEmpty, NScrollbar, NCode, useMessage, useDialog, type DataTableColumns } from 'naive-ui'
 import { SearchOutline, EyeOutline, TrashOutline } from '@vicons/ionicons5'
 import { cacheApi } from '@/api/monitor'
@@ -124,6 +124,8 @@ const dialog = useDialog()
 const { isMobile } = useResponsive()
 
 const keys = ref<string[]>([])
+type CacheKeyRow = { key: string }
+const keyRows = computed<CacheKeyRow[]>(() => keys.value.map(key => ({ key })))
 const keysLoading = ref(false)
 const searchPattern = ref('*')
 
@@ -135,15 +137,15 @@ const cacheDetail = ref<{ key: string; type: string; value: string; ttl: number 
   key: '', type: '', value: '', ttl: -1
 })
 
-const columns: DataTableColumns<string> = [
-  { title: '键名', key: 'key', render(row) { return h('span', { style: 'word-break: break-all;' }, row) }},
+const columns: DataTableColumns<CacheKeyRow> = [
+  { title: '键名', key: 'key', render(row) { return h('span', { style: 'word-break: break-all;' }, row.key) }},
   { title: '操作', key: 'actions', width: 180, render(row) {
     return h(NSpace, null, {
       default: () => [
-        h(NButton, { size: 'small', quaternary: true, type: 'primary', onClick: () => handleView(row) }, {
+        h(NButton, { size: 'small', quaternary: true, type: 'primary', onClick: () => handleView(row.key) }, {
           default: () => [h(NIcon, null, { default: () => h(EyeOutline) }), ' 查看']
         }),
-        h(NButton, { size: 'small', quaternary: true, type: 'error', onClick: () => handleDelete(row) }, {
+        h(NButton, { size: 'small', quaternary: true, type: 'error', onClick: () => handleDelete(row.key) }, {
           default: () => [h(NIcon, null, { default: () => h(TrashOutline) }), ' 删除']
         })
       ]

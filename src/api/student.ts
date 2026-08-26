@@ -10,7 +10,7 @@ export interface Student {
 
   gender?: number
 
-  birthday?:  string
+  birthday?:  string | number
 
   phone?:  string
 
@@ -24,9 +24,9 @@ export interface Student {
 
   deleted?: number
 
-  createTime?:  string
+  createTime?:  string | number
 
-  updateTime?:  string
+  updateTime?:  string | number
 
 }
 

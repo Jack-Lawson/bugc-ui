@@ -491,15 +491,17 @@ async function loadUsers() {
 async function loadDepts() {
   try {
     const list = await deptApi.tree()
-    const flatten = (nodes: any[]): { label: string; value: number }[] => {
+    const flatten = (nodes: SysDept[]): { label: string; value: number }[] => {
       const result: { label: string; value: number }[] = []
-      const walk = (items: any[], prefix = '') => {
+      const walk = (items: SysDept[], prefix = '') => {
         for (const n of items || []) {
-          result.push({ label: prefix + (n.deptName || ''), value: n.id })
+          if (typeof n.id === 'number') {
+            result.push({ label: prefix + (n.deptName || ''), value: n.id })
+          }
           if (n.children?.length) walk(n.children, prefix + '　')
         }
       }
-      walk(list)
+      walk(nodes)
       return result
     }
     deptOptions.value = flatten(list || [])

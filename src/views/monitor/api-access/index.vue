@@ -73,7 +73,7 @@
         </n-form>
       </div>
 
-      <n-data-table :columns="columns" :data="tableData" :loading="loading" :row-key="(row: ApiAccessLog) => row.id" />
+      <n-data-table :columns="columns" :data="tableData" :loading="loading" :row-key="(row: ApiAccessLog) => row.id ?? `${row.apiPath || ''}-${row.startTime || ''}`" />
 
       <div class="pagination-container">
         <n-pagination

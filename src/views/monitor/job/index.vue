@@ -159,7 +159,7 @@
               :options="cronPresetOptions"
               style="width: 140px; flex-shrink: 0"
               clearable
-              @update:value="(v: string) => { if (v) { formData.cronExpression = v; cronPresetSelect.value = null } }"
+              @update:value="(v: string | null) => { if (v) { formData.cronExpression = v; cronPresetSelect = null } }"
             />
           </n-input-group>
         </n-form-item>
@@ -286,7 +286,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, h, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
+import { ref, reactive, h, onMounted, onUnmounted, watch, computed, nextTick, type VNode } from 'vue'
 import { NButton, NTag, NSpace, NSwitch, NPagination, useMessage, useDialog, type DataTableColumns, type FormInst, type FormRules } from 'naive-ui'
 import { SearchOutline, RefreshOutline, AddOutline, ListOutline } from '@vicons/ionicons5'
 import { jobApi, type SysJob, type SysJobLog } from '@/api/monitor'
@@ -344,7 +344,7 @@ const columns: DataTableColumns<SysJob> = [
       { checked: () => '正常', unchecked: () => '暂停' })
   }},
   { title: '操作', key: 'actions', width: 280, fixed: 'right', render(row) {
-    const buttons = []
+      const buttons: VNode[] = []
     buttons.push(h(NButton, { size: 'small',  onClick: () => handleShowLog(row) }, { default: () => '调度日志' }))
     if (hasPermission('monitor:job:edit')) {
       buttons.push(h(NButton, { size: 'small', onClick: () => handleRun(row) }, { default: () => '执行' }))
@@ -432,7 +432,13 @@ watch(showLogModal, (val) => {
 async function loadData() {
   loading.value = true
   try {
-    const res = await jobApi.page({ page: pagination.page, pageSize: pagination.pageSize, ...searchForm })
+    const res = await jobApi.page({
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      jobName: searchForm.jobName || undefined,
+      jobGroup: searchForm.jobGroup || undefined,
+      status: searchForm.status ?? undefined
+    })
     tableData.value = res.list
     pagination.itemCount = res.total
   } finally { loading.value = false }

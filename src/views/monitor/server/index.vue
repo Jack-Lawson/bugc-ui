@@ -237,6 +237,16 @@ import {
 } from '@/api/monitor'
 import { serverApi as serverManagerApi } from '@/api/server'
 
+type ProfileDetailGroup = {
+  name: string
+  tab: string
+  sections: Array<{
+    title: string
+    items: Array<{ label: string; value: string }>
+  }>
+  note?: string
+}
+
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
@@ -334,8 +344,8 @@ const hostSummaryItems = computed(() => [
   { label: '包管理器', value: valueOrDash(profile.value.packageManager) }
 ])
 
-const profileDetailGroups = computed(() => {
-  const groups = [
+const profileDetailGroups = computed<ProfileDetailGroup[]>(() => {
+  const groups: ProfileDetailGroup[] = [
     {
       name: 'basic-system',
       tab: '概览 / 系统',
@@ -530,21 +540,6 @@ async function loadDashboard(silent = false) {
     errorText.value = '监控数据加载失败'
   } finally {
     if (!silent) dashboardLoading.value = false
-  }
-}
-
-async function refreshProfile() {
-  if (!selectedTargetKey.value) return
-  profileRefreshing.value = true
-  try {
-    dashboard.value = await serverMonitorApi.refreshProfile(selectedTargetKey.value)
-    applyDashboardServerStatus()
-    message.success('服务器档案已刷新')
-    await loadTargets()
-  } catch {
-    errorText.value = '服务器档案刷新失败'
-  } finally {
-    profileRefreshing.value = false
   }
 }
 

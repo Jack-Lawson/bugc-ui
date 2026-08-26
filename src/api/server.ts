@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import { request } from '@/utils/request'
 import { encryptSensitiveFields } from '@/utils/crypto'
 
 export interface Server {
@@ -25,6 +25,12 @@ export interface ServerPageParams {
   status?: number
 }
 
+export interface ServerPageResult {
+  records: Server[]
+  total: number
+  pages?: number
+}
+
 export interface ServerRuntimeStatus {
   serverId?: number
   name?: string
@@ -43,8 +49,8 @@ export interface ServerRuntimeStatus {
 
 export const serverApi = {
   // 分页查询
-  list(params: ServerPageParams) {
-    return request({
+  list(params: ServerPageParams): Promise<ServerPageResult> {
+    return request<ServerPageResult>({
       url: '/monitor/server-manager/list',
       method: 'get',
       params

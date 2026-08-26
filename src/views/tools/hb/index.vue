@@ -268,10 +268,6 @@ function applyImmersive(enabled: boolean) {
   nextTick(resizeCanvas)
 }
 
-function toggleImmersive() {
-  applyImmersive(!isImmersive.value)
-}
-
 async function toggleFullscreen() {
   try {
     if (!document.fullscreenElement) {

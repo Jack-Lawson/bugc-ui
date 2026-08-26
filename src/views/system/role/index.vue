@@ -143,7 +143,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, h, onMounted } from 'vue'
+import { ref, reactive, h, onMounted, type VNode } from 'vue'
 import { NButton, NTag, NSpace, useMessage, useDialog, type DataTableColumns, type FormInst, type FormRules, type TreeOption } from 'naive-ui'
 import { SearchOutline, RefreshOutline, AddOutline } from '@vicons/ionicons5'
 import { roleApi, menuApi, deptApi, type SysRole, type SysMenu, type SysDept } from '@/api/system'
@@ -222,7 +222,7 @@ const columns: DataTableColumns<SysRole> = [
     width: 150,
     fixed: 'right',
     render(row) {
-      const buttons = []
+      const buttons: VNode[] = []
       if (hasPermission('sys:role:edit')) {
         buttons.push(h(NButton, { size: 'small', onClick: () => handleEdit(row) }, { default: () => '编辑' }))
       }

@@ -361,6 +361,18 @@ export interface SysFile {
   remark?: string
 }
 
+export interface FileUploadFailure {
+  fileName: string
+  reason: string
+}
+
+export interface FileUploadBatchResult {
+  successCount: number
+  failCount: number
+  successFiles: SysFile[]
+  failFiles: FileUploadFailure[]
+}
+
 export const fileApi = {
   page(params: { page: number; pageSize: number; originalName?: string; fileType?: string }): Promise<PageResult<SysFile>> {
     return request({ url: '/sys/file/page', method: 'get', params })
@@ -397,6 +409,35 @@ export const fileApi = {
     }
     return request({
       url: '/sys/file/upload',
+      method: 'post',
+      data: formData,
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+
+  uploadBatch(files: File[], options?: {
+    path?: string
+    groupId?: number | null
+    fileScope?: string
+    relativePaths?: string[]
+  }): Promise<FileUploadBatchResult> {
+    const formData = new FormData()
+    files.forEach((file, index) => {
+      const relativePath = options?.relativePaths?.[index] || file.name
+      formData.append('files', file, relativePath || file.name)
+      formData.append('relativePaths', relativePath)
+    })
+    if (options?.path) {
+      formData.append('path', options.path)
+    }
+    if (options?.groupId !== undefined && options.groupId !== null && options.groupId > 0) {
+      formData.append('groupId', options.groupId.toString())
+    }
+    if (options?.fileScope) {
+      formData.append('fileScope', options.fileScope)
+    }
+    return request({
+      url: '/sys/file/upload/batch',
       method: 'post',
       data: formData,
       headers: { 'Content-Type': 'multipart/form-data' }

@@ -75,23 +75,23 @@
               <n-button
                   v-if="hasPermission('sys:file:upload') && isFolderMode"
                   type="primary"
+                  :loading="uploading"
+                  :disabled="uploading"
                   @click="showUploadModal = true"
               >
                 <template #icon><n-icon><CloudUploadOutline/></n-icon></template>
                 {{ uploadModalTitle }}
               </n-button>
-              <n-upload
+              <n-button
                   v-else-if="hasPermission('sys:file:upload')"
-                  :custom-request="handleUpload"
-                  :show-file-list="false"
-                  :multiple="true"
-                  :accept="uploadAccept"
+                  type="primary"
+                  :loading="uploading"
+                  :disabled="uploading"
+                  @click="triggerFileSelect"
               >
-                <n-button type="primary">
-                  <template #icon><n-icon><CloudUploadOutline/></n-icon></template>
-                  {{ uploadModalTitle }}
-                </n-button>
-              </n-upload>
+                <template #icon><n-icon><CloudUploadOutline/></n-icon></template>
+                {{ uploadModalTitle }}
+              </n-button>
               <n-button :disabled="selectedIds.length === 0" @click="handleBatchDelete">
                 删除
               </n-button>
@@ -326,35 +326,38 @@
     <!-- 上传弹窗 -->
     <n-modal v-model:show="showUploadModal" preset="dialog" :title="uploadModalTitle">
       <div class="upload-dialog">
-        <n-upload
-            :custom-request="handleUpload"
-            :show-file-list="false"
-            :multiple="true"
-            :accept="uploadAccept"
-        >
-          <n-button type="primary" block>
-            <template #icon><n-icon><component :is="categoryIcon"/></n-icon></template>
-            {{ uploadFileButtonText }}
-          </n-button>
-        </n-upload>
-        <n-upload
-            v-if="isFolderMode"
-            :custom-request="handleUpload"
-            :show-file-list="false"
-            :multiple="true"
-            :directory="true"
-            :accept="uploadAccept"
-        >
-          <n-button block>
-            <template #icon><n-icon><FolderOpenOutline/></n-icon></template>
-            选择文件夹
-          </n-button>
-        </n-upload>
+        <n-button type="primary" block :loading="uploading" :disabled="uploading" @click="triggerFileSelect">
+          <template #icon><n-icon><component :is="categoryIcon"/></n-icon></template>
+          {{ uploadFileButtonText }}
+        </n-button>
+        <n-button v-if="isFolderMode" block :disabled="uploading" @click="triggerFolderSelect">
+          <template #icon><n-icon><FolderOpenOutline/></n-icon></template>
+          选择文件夹
+        </n-button>
       </div>
       <template #action>
         <n-button @click="showUploadModal = false">关闭</n-button>
       </template>
     </n-modal>
+
+    <input
+        ref="fileInputRef"
+        class="hidden-upload-input"
+        type="file"
+        :accept="uploadAccept"
+        multiple
+        @change="handleFileInputChange"
+    />
+    <input
+        v-if="isFolderMode"
+        ref="folderInputRef"
+        class="hidden-upload-input"
+        type="file"
+        multiple
+        webkitdirectory
+        directory
+        @change="handleFolderInputChange"
+    />
 
     <!-- 新增/编辑分组或文件夹弹窗 -->
     <n-modal v-model:show="showGroupModal" preset="dialog" :title="organizerModalTitle">
@@ -466,13 +469,13 @@
 <script setup lang="ts">
 import {ref, reactive, computed, onMounted, watch} from 'vue'
 import {useRoute} from 'vue-router'
-import {useMessage, useDialog, type UploadCustomRequestOptions} from 'naive-ui'
+import {useMessage, useDialog} from 'naive-ui'
 import {
   CloudUploadOutline, SearchOutline, ListOutline, GridOutline, FolderOutline,
   AddOutline, EllipsisHorizontalOutline, DocumentOutline, DocumentTextOutline,
   ImageOutline, VideocamOutline, CodeSlashOutline, FolderOpenOutline
 } from '@vicons/ionicons5'
-import {fileApi, fileGroupApi, type SysFile, type SysFileGroup} from '@/api/system'
+import {fileApi, fileGroupApi, type FileUploadBatchResult, type SysFile, type SysFileGroup} from '@/api/system'
 import {useUserStore} from '@/stores/user'
 import {normalizeApiAssetUrl} from '@/config/app'
 import {useResponsive} from '@/composables/useResponsive'
@@ -494,6 +497,12 @@ type DropEntry = {
   createReader?: () => { readEntries: (callback: (entries: DropEntry[]) => void) => void }
 }
 type DropItem = DataTransferItem & { webkitGetAsEntry?: () => DropEntry | null }
+type PreparedUploadFile = {
+  file: File
+  relativePath?: string
+}
+
+const UPLOAD_BATCH_SIZE = 10
 
 const props = defineProps<{
   category?: FileCategory
@@ -594,6 +603,7 @@ const files = ref<SysFile[]>([])
 const visibleFolders = computed(() => isFolderMode.value && activeGroupId.value !== -1 ? groups.value : [])
 const hasContent = computed(() => files.value.length > 0 || visibleFolders.value.length > 0)
 const loading = ref(false)
+const uploading = ref(false)
 const selectedIds = ref<number[]>([])
 const pagination = reactive({
   page: 1,
@@ -606,6 +616,8 @@ const showGroupModal = ref(false)
 const editingGroup = ref<SysFileGroup | null>(null)
 const groupForm = reactive({name: ''})
 const showUploadModal = ref(false)
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const folderInputRef = ref<HTMLInputElement | null>(null)
 
 // 移动弹窗
 const showMoveModal = ref(false)
@@ -851,7 +863,7 @@ function handleGroupAction(key: string, group: SysFileGroup) {
   }
 }
 
-function showGroupMenu(e: MouseEvent, group: SysFileGroup) {
+function showGroupMenu(_e: MouseEvent, _group: SysFileGroup) {
   // 右键菜单暂不实现，使用下拉菜单
 }
 
@@ -896,55 +908,121 @@ function getUploadGroupId(): number | null {
   return activeGroupId.value
 }
 
-// 上传
-async function handleUpload(options: UploadCustomRequestOptions) {
-  const {file, onFinish, onError} = options
-  const rawFile = file.file as File
-  if (!validateUploadFile(rawFile)) {
-    onError()
-    return
-  }
-  try {
-    await fileApi.upload(
-        rawFile,
-        undefined,
-        getUploadGroupId(),
-        activeType.value,
-        isFolderMode.value ? file.fullPath || undefined : undefined
-    )
-    message.success('上传成功')
-    onFinish()
-    loadFiles()
-    loadGroups()
-  } catch (error) {
-    onError()
+function triggerFileSelect() {
+  if (uploading.value) return
+  if (fileInputRef.value) {
+    fileInputRef.value.value = ''
+    fileInputRef.value.click()
   }
 }
 
+function triggerFolderSelect() {
+  if (uploading.value) return
+  if (folderInputRef.value) {
+    folderInputRef.value.value = ''
+    folderInputRef.value.click()
+  }
+}
+
+async function handleFileInputChange(event: Event) {
+  if (uploading.value) return
+  const input = event.target as HTMLInputElement
+  const selectedFiles = Array.from(input.files || [])
+  if (selectedFiles.length === 0) return
+  await uploadFilesToCurrentFolder(selectedFiles)
+  input.value = ''
+}
+
+async function handleFolderInputChange(event: Event) {
+  if (uploading.value) return
+  const input = event.target as HTMLInputElement
+  const selectedFiles = Array.from(input.files || [])
+  if (selectedFiles.length === 0) return
+  await uploadFilesToCurrentFolder(selectedFiles)
+  input.value = ''
+}
+
 async function uploadFilesToCurrentFolder(uploadFiles: File[]) {
-  const uploadGroupId = getUploadGroupId()
-  let successCount = 0
-  for (const uploadFile of uploadFiles) {
-    if (!validateUploadFile(uploadFile)) {
-      continue
-    }
-    try {
-      await fileApi.upload(
-          uploadFile,
-          undefined,
-          uploadGroupId,
-          activeType.value,
-          isFolderMode.value ? getRelativePath(uploadFile) : undefined
-      )
-      successCount++
-    } catch (error) {
-      message.error(`${uploadFile.name} 上传失败`)
+  const result = await uploadPreparedFiles(uploadFiles.map(uploadFile => ({
+    file: uploadFile,
+    relativePath: isFolderMode.value ? getRelativePath(uploadFile) : undefined
+  })))
+  showUploadResult(result)
+}
+
+async function uploadPreparedFiles(uploadFiles: PreparedUploadFile[]): Promise<FileUploadBatchResult> {
+  if (uploading.value) {
+    return {
+      successCount: 0,
+      failCount: uploadFiles.length,
+      successFiles: [],
+      failFiles: uploadFiles.map(item => ({fileName: item.file.name, reason: '文件正在上传中'}))
     }
   }
-  if (successCount > 0) {
-    message.success(`已上传 ${successCount} 个文件`)
-    loadFiles()
-    loadGroups()
+  uploading.value = true
+  const validFiles = uploadFiles.filter(item => validateUploadFile(item.file))
+  const result: FileUploadBatchResult = {
+    successCount: 0,
+    failCount: uploadFiles.length - validFiles.length,
+    successFiles: [],
+    failFiles: uploadFiles
+        .filter(item => !validFiles.includes(item))
+        .map(item => ({fileName: item.file.name, reason: '文件类型不符合当前资源库'}))
+  }
+
+  try {
+    if (validFiles.length === 0) {
+      return result
+    }
+
+    const uploadGroupId = getUploadGroupId()
+    for (let index = 0; index < validFiles.length; index += UPLOAD_BATCH_SIZE) {
+      const batch = validFiles.slice(index, index + UPLOAD_BATCH_SIZE)
+      try {
+        const batchResult = await fileApi.uploadBatch(batch.map(item => item.file), {
+          groupId: uploadGroupId,
+          fileScope: activeType.value,
+          relativePaths: batch.map(item => item.relativePath || item.file.name)
+        })
+        mergeUploadResult(result, batchResult)
+      } catch (error) {
+        batch.forEach(item => {
+          result.failFiles.push({fileName: item.file.name, reason: error instanceof Error ? error.message : '上传失败'})
+        })
+        result.failCount = result.failFiles.length
+      }
+    }
+
+    if (result.successCount > 0) {
+      await loadFiles()
+      await loadGroups()
+    }
+
+    return result
+  } finally {
+    uploading.value = false
+  }
+}
+
+function mergeUploadResult(target: FileUploadBatchResult, source: FileUploadBatchResult) {
+  target.successFiles.push(...(source.successFiles || []))
+  target.failFiles.push(...(source.failFiles || []))
+  target.successCount = target.successFiles.length
+  target.failCount = target.failFiles.length
+}
+
+function showUploadResult(result: FileUploadBatchResult) {
+  if (result.successCount > 0 && result.failCount === 0) {
+    message.success(`已上传 ${result.successCount} 个文件`)
+    return
+  }
+  if (result.successCount > 0) {
+    message.warning(`已上传 ${result.successCount} 个文件，失败 ${result.failCount} 个`)
+    return
+  }
+  if (result.failCount > 0) {
+    const firstFailure = result.failFiles[0]
+    message.error(firstFailure ? `${firstFailure.fileName} 上传失败：${firstFailure.reason}` : '上传失败')
   }
 }
 
@@ -962,6 +1040,7 @@ function handleDragLeave() {
 }
 
 async function handleDrop(e: DragEvent) {
+  if (uploading.value) return
   isDragging.value = false
   dragCounter = 0
   const droppedFiles = await collectDroppedFiles(e)
@@ -976,9 +1055,13 @@ function getRelativePath(file: File): string {
 
 async function collectDroppedFiles(event: DragEvent): Promise<UploadFileWithPath[]> {
   const items = Array.from(event.dataTransfer?.items || []) as DropItem[]
-  const entryItems = items
-      .map(item => item.webkitGetAsEntry?.())
-      .filter((entry): entry is DropEntry => !!entry)
+  const entryItems: DropEntry[] = []
+  for (const item of items) {
+    const entry = item.webkitGetAsEntry?.() as DropEntry | null | undefined
+    if (entry) {
+      entryItems.push(entry)
+    }
+  }
   if (entryItems.length === 0) {
     return Array.from(event.dataTransfer?.files || []) as UploadFileWithPath[]
   }
@@ -1033,8 +1116,8 @@ async function handlePreview(file: SysFile) {
   previewFile.value = file
   resetImageZoom()
   
-  // PDF、视频、音频等需要内嵌预览的文件，强制使用后端预览接口（避免云存储的attachment头导致下载）
-  if (isPdf(file) || isVideo(file) || isAudio(file)) {
+  // 图片、PDF、视频、音频等需要内嵌预览的文件，强制使用后端预览接口（避免云存储的attachment头导致下载）
+  if (isImage(file) || isPdf(file) || isVideo(file) || isAudio(file)) {
     previewUrl.value = fileApi.getPreviewUrl(file.id!)
   } else if (file.url) {
     previewUrl.value = getFileAssetUrl(file)
@@ -1353,9 +1436,12 @@ watch(
   padding-top: 4px;
 }
 
-.upload-dialog :deep(.n-upload-trigger),
 .upload-dialog :deep(.n-button) {
   width: 100%;
+}
+
+.hidden-upload-input {
+  display: none;
 }
 
 .file-search-input {

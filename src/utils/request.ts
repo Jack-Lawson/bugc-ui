@@ -9,6 +9,10 @@ interface ApiResponse<T = any> {
   data: T
 }
 
+interface AppRequestConfig extends AxiosRequestConfig {
+  skipDuplicate?: boolean
+}
+
 // 加密配置
 interface CryptoConfig {
   enabled: boolean
@@ -117,6 +121,30 @@ const service: AxiosInstance = axios.create({
   timeout: apiConfig.timeout
 })
 
+const pendingRequests = new Map<string, Promise<unknown>>()
+
+function normalizeRequestData(data: unknown): unknown {
+  if (data instanceof FormData) {
+    return Array.from(data.entries()).map(([key, value]) => {
+      if (value instanceof File) {
+        return [key, value.name, value.size, value.type, value.lastModified]
+      }
+      return [key, value]
+    })
+  }
+  return data
+}
+
+function getRequestKey(config: AxiosRequestConfig): string {
+  return JSON.stringify({
+    method: (config.method || 'get').toLowerCase(),
+    baseURL: config.baseURL || apiConfig.baseUrl,
+    url: config.url || '',
+    params: config.params || null,
+    data: normalizeRequestData(config.data)
+  })
+}
+
 // 请求拦截器
 service.interceptors.request.use(
   (config) => {
@@ -185,8 +213,22 @@ service.interceptors.response.use(
 )
 
 // 封装请求方法
-export function request<T = any>(config: AxiosRequestConfig): Promise<T> {
-  return service(config) as Promise<T>
+export function request<T = any>(config: AppRequestConfig): Promise<T> {
+  if (config.skipDuplicate) {
+    return service(config) as Promise<T>
+  }
+
+  const requestKey = getRequestKey(config)
+  const pendingRequest = pendingRequests.get(requestKey)
+  if (pendingRequest) {
+    return pendingRequest as Promise<T>
+  }
+
+  const promise = service(config).finally(() => {
+    pendingRequests.delete(requestKey)
+  }) as Promise<T>
+  pendingRequests.set(requestKey, promise)
+  return promise
 }
 
 export default service

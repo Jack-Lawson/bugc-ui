@@ -104,7 +104,7 @@
           <n-input v-model:value="formData.permission" placeholder="请输入权限标识，如：sys:user:add" />
         </n-form-item>
         <n-form-item v-if="formData.type !== 3" label="图标" path="icon">
-          <IconSelect v-model="formData.icon" />
+          <IconSelect v-model="formIcon" />
         </n-form-item>
         <n-form-item label="排序" path="sort">
           <n-input-number v-model:value="formData.sort" :min="0" style="width: 100%" />
@@ -133,7 +133,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, h, onMounted, computed } from 'vue'
+import { ref, reactive, h, onMounted, computed, type VNode } from 'vue'
 import { NButton, NTag, NSpace, NIcon, useMessage, useDialog, type DataTableColumns, type FormInst, type FormRules, type TreeSelectOption } from 'naive-ui'
 import { SearchOutline, RefreshOutline, AddOutline } from '@vicons/ionicons5'
 import { menuApi, type SysMenu } from '@/api/system'
@@ -262,7 +262,7 @@ const columns: DataTableColumns<SysMenu> = [
     width: 200,
     fixed: 'right',
     render(row) {
-      const buttons = []
+      const buttons: VNode[] = []
       if (row.type !== 3 && hasPermission('sys:menu:add')) {
         buttons.push(h(NButton, { size: 'small', onClick: () => handleAdd(row.id) }, { default: () => '新增' }))
       }
@@ -296,6 +296,13 @@ const formData = reactive<SysMenu>({
   visible: 1,
   status: 1,
   isFrame: 0
+})
+
+const formIcon = computed({
+  get: () => formData.icon || '',
+  set: (value: string) => {
+    formData.icon = value
+  }
 })
 
 const rules: FormRules = {

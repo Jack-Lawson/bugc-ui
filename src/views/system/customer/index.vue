@@ -45,7 +45,7 @@
         :data="tableData"
         :loading="loading"
         :pagination="pagination"
-        :row-key="(row) => row.id"
+        :row-key="(row: Customer) => row.id ?? row.phone ?? row.name"
         @update:page="handlePageChange"
         @update:page-size="handlePageSizeChange"
         @update:checked-row-keys="handleCheck"

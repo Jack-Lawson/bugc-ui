@@ -1030,57 +1030,6 @@ const menuOptions = computed<MenuOption[]>(() => {
 // 当前激活菜单
 const activeMenu = computed(() => route.path)
 
-// 面包屑
-const breadcrumbs = computed(() => {
-  const items: Array<{ path: string; title: string }> = []
-  if (route.path === '/dashboard') {
-    items.push({ path: '/dashboard', title: '首页' })
-  } else if (route.path.startsWith('/system')) {
-    items.push({ path: '/system', title: '系统管理' })
-    if (route.path === '/system/user') {
-      items.push({ path: '/system/user', title: '用户管理' })
-    } else if (route.path === '/system/role') {
-      items.push({ path: '/system/role', title: '角色管理' })
-    } else if (route.path === '/system/menu') {
-      items.push({ path: '/system/menu', title: '菜单管理' })
-    } else if (route.path === '/system/dict') {
-      items.push({ path: '/system/dict', title: '字典管理' })
-    } else if (route.path === '/system/config') {
-      items.push({ path: '/system/config', title: '系统配置' })
-    } else if (route.path === '/system/image') {
-      items.push({ path: '/system/image', title: '图片管理' })
-    } else if (route.path === '/system/video') {
-      items.push({ path: '/system/video', title: '视频管理' })
-    } else if (route.path === '/system/file') {
-      items.push({ path: '/system/file', title: '文件列表' })
-    } else if (route.path === '/system/file-config') {
-      items.push({ path: '/system/file-config', title: '文件配置' })
-    }
-  } else if (route.path.startsWith('/org')) {
-    items.push({ path: '/org', title: '组织管理' })
-    if (route.path === '/org/dept') {
-      items.push({ path: '/org/dept', title: '部门管理' })
-    } else if (route.path === '/org/post') {
-      items.push({ path: '/org/post', title: '岗位管理' })
-    }
-  } else if (route.path.startsWith('/log')) {
-    items.push({ path: '/log', title: '系统日志' })
-    if (route.path === '/log/operlog') {
-      items.push({ path: '/log/operlog', title: '操作日志' })
-    } else if (route.path === '/log/loginlog') {
-      items.push({ path: '/log/loginlog', title: '登录日志' })
-    }
-  } else if (route.path.startsWith('/message')) {
-    items.push({ path: '/message', title: '消息中心' })
-    if (route.path === '/message/notice') {
-      items.push({ path: '/message/notice', title: '系统通知' })
-    } else if (route.path === '/message/chat') {
-      items.push({ path: '/message/chat', title: '即时聊天' })
-    }
-  }
-  return items
-})
-
 // 菜单点击
 function handleMenuClick(key: string) {
   navigateByKey(key)
@@ -1270,13 +1219,13 @@ body.dark-theme .logo {
 .logo-text {
   font-size: 18px;
   font-weight: 700;
-  color: #111827;
+  color: var(--primary-color, #2E5CF6);
   white-space: nowrap;
   transition: color 0.3s;
 }
 
 body.dark-theme .logo-text {
-  color: #ffffffd1;
+  color: var(--primary-color, #60a5fa);
 }
 
 .layout-menu {
@@ -1334,6 +1283,35 @@ body.dark-theme .layout-header {
   .header-logo .logo-text {
     color: #fff;
   }
+
+  .header-brand {
+    color: #fff;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+  }
+
+  .header-brand-text {
+    color: #fff;
+  }
+
+  .header-brand-icon {
+    background: #fff;
+    color: var(--primary-color, #2E5CF6);
+  }
+
+  .header-brand--mobile-trigger {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.28);
+    box-shadow: none;
+
+    &:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.2);
+    }
+  }
 }
 
 .header-left {
@@ -1357,7 +1335,7 @@ body.dark-theme .layout-header {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: #111827;
+  color: var(--primary-color, #2E5CF6);
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
 
@@ -1399,7 +1377,7 @@ body.dark-theme .layout-header {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: #111827;
+  background: var(--primary-color, #2E5CF6);
   color: #fff;
   font-size: 18px;
   font-weight: 700;
@@ -1413,7 +1391,7 @@ body.dark-theme .layout-header {
 }
 
 body.dark-theme .header-brand {
-  color: #ffffffd1;
+  color: var(--primary-color, #60a5fa);
 
   &:hover {
     background: #3f3f46;
@@ -1421,7 +1399,7 @@ body.dark-theme .header-brand {
 }
 
 body.dark-theme .header-brand-icon {
-  background: #27272a;
+  background: var(--primary-color, #60a5fa);
 }
 
 body.dark-theme .header-brand--mobile-trigger {
@@ -2145,7 +2123,7 @@ body.dark-theme .theme-mode.active span {
   .logo-text {
     font-size: 18px;
     font-weight: 700;
-    color: #111827;
+    color: var(--primary-color, #2E5CF6);
     white-space: nowrap;
   }
 }
@@ -2184,7 +2162,7 @@ body.dark-theme .theme-mode.active span {
   border-right: 1px solid #e8e8e8;
 
   .logo-text {
-    color: #333;
+    color: var(--primary-color, #2E5CF6);
   }
 
   :deep(.n-menu) {
@@ -2203,7 +2181,7 @@ body.dark-theme .theme-light {
   border-right: 1px solid #3f3f46;
 
   .logo-text {
-    color: #ffffffd1;
+    color: var(--primary-color, #60a5fa);
   }
 
   .logo-icon {

@@ -57,7 +57,7 @@
         :columns="columns"
         :data="services"
         :loading="loading"
-        :row-key="row => row.id"
+        :row-key="(row: PersonalService) => row.id ?? row.code"
         remote
       />
       <div v-else class="service-mobile-list">
