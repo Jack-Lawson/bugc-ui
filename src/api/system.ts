@@ -2,6 +2,8 @@ import { request } from '@/utils/request'
 import { buildApiUrl } from '@/config/app'
 import { encryptSensitiveFields } from '@/utils/crypto'
 
+const FILE_IMAGE_DERIVATIVE_VERSION = 2
+
 // 分页结果
 export interface PageResult<T> {
   list: T[]
@@ -460,11 +462,11 @@ export const fileApi = {
   },
   
   getPreviewUrl(id: number): string {
-    return buildApiUrl(`/sys/file/preview/${id}`)
+    return buildApiUrl(`/sys/file/preview/${id}?v=${FILE_IMAGE_DERIVATIVE_VERSION}`)
   },
 
   getThumbnailUrl(id: number, width = 240, height = 160): string {
-    return buildApiUrl(`/sys/file/thumbnail/${id}?width=${width}&height=${height}`)
+    return buildApiUrl(`/sys/file/thumbnail/${id}?width=${width}&height=${height}&v=${FILE_IMAGE_DERIVATIVE_VERSION}`)
   },
 
   getTextContent(id: number): Promise<string> {
