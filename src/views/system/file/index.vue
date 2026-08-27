@@ -600,6 +600,7 @@ const searchName = ref('')
 
 // 文件列表
 const files = ref<SysFile[]>([])
+const thumbnailRefreshVersion = ref(Date.now())
 const visibleFolders = computed(() => isFolderMode.value && activeGroupId.value !== -1 ? groups.value : [])
 const hasContent = computed(() => files.value.length > 0 || visibleFolders.value.length > 0)
 const loading = ref(false)
@@ -778,7 +779,7 @@ async function loadFiles() {
     const res = await fileApi.pageByGroup({
       page: pagination.page,
       pageSize: pagination.pageSize,
-      groupId: activeGroupId.value === -1 ? undefined : activeGroupId.value,
+      groupId: activeGroupId.value,
       fileScope: activeType.value,
       originalName: searchName.value || undefined
     })
@@ -994,6 +995,8 @@ async function uploadPreparedFiles(uploadFiles: PreparedUploadFile[]): Promise<F
     }
 
     if (result.successCount > 0) {
+      await sleep(600)
+      thumbnailRefreshVersion.value = Date.now()
       await loadFiles()
       await loadGroups()
     }
@@ -1236,7 +1239,14 @@ function isText(file: SysFile | null): boolean { if (!file) return false; const 
 function isPreviewable(file: SysFile): boolean { return isImage(file) || isVideo(file) || isAudio(file) || isPdf(file) || isText(file) || isOffice(file) }
 function getCodeLanguage(file: SysFile | null): string { const s = file?.fileSuffix?.toLowerCase() || ''; const m: any = {'.js': 'javascript', '.ts': 'typescript', '.vue': 'vue', '.json': 'json', '.java': 'java', '.py': 'python', '.md': 'markdown'}; return m[s] || 'text' }
 function getFileAssetUrl(file: SysFile): string { return normalizeApiAssetUrl(file.url) || fileApi.getPreviewUrl(file.id!) }
-function getFileThumbnailUrl(file: SysFile, width = 240, height = 160): string { return file.id ? fileApi.getThumbnailUrl(file.id, width, height) : getFileAssetUrl(file) }
+function getFileThumbnailUrl(file: SysFile, width = 240, height = 160): string {
+  if (!file.id) return getFileAssetUrl(file)
+  return `${fileApi.getThumbnailUrl(file.id, width, height)}&r=${thumbnailRefreshVersion.value}`
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => window.setTimeout(resolve, ms))
+}
 function getOfficePreviewUrl(file: SysFile | null): string { if (!file) return ''; return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(getFileAssetUrl(file))}` }
 function getFileIcon(file: SysFile) { const s = file.fileSuffix?.toLowerCase() || ''; if (['.doc', '.docx', '.xls', '.xlsx', '.pdf', '.txt', '.md'].includes(s)) return DocumentTextOutline; if (['.js', '.ts', '.vue'].includes(s)) return CodeSlashOutline; if (file.fileType?.startsWith('image/')) return ImageOutline; return DocumentOutline }
 function getFileIconColor(file: SysFile) { const s = file.fileSuffix?.toLowerCase() || ''; if (['.doc', '.docx'].includes(s)) return '#2b579a'; if (['.xls', '.xlsx'].includes(s)) return '#217346'; if (['.pdf'].includes(s)) return '#f40f02'; return '#9ca3af' }
