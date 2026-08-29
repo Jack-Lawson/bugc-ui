@@ -148,6 +148,7 @@ import { NButton, NTag, NSpace, useMessage, useDialog, type DataTableColumns, ty
 import { SearchOutline, RefreshOutline, AddOutline } from '@vicons/ionicons5'
 import { roleApi, menuApi, deptApi, type SysRole, type SysMenu, type SysDept } from '@/api/system'
 import { useUserStore } from '@/stores/user'
+import { addDynamicRoutes, resetRouter } from '@/router'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -155,6 +156,12 @@ const userStore = useUserStore()
 
 // 权限检查
 const hasPermission = (permission: string) => userStore.hasPermission(permission)
+
+async function refreshUserRoutes() {
+  await userStore.getInfo()
+  resetRouter()
+  addDynamicRoutes(userStore.menus)
+}
 
 // 搜索表单
 const searchForm = reactive({
@@ -294,7 +301,7 @@ async function loadData() {
 // 加载菜单树
 async function loadMenuTree() {
   try {
-    const menus = await menuApi.tree()
+    const menus = await menuApi.tree({ status: 1 })
     menuTreeData.value = convertMenuToTree(menus)
   } catch (error) {
     // 错误已在拦截器处理
@@ -426,7 +433,8 @@ async function handleSubmit() {
     }
 
     modalVisible.value = false
-    loadData()
+    await loadData()
+    await refreshUserRoutes()
   } catch (error) {
     // 错误已在拦截器处理
   } finally {

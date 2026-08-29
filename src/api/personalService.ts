@@ -55,6 +55,10 @@ export const personalServiceApi = {
     return request({ url: '/personal/services', method: 'put', data })
   },
 
+  test(id: number): Promise<boolean> {
+    return request({ url: '/personal/services/test/' + id, method: 'post' })
+  },
+
   delete(id: number): Promise<void> {
     return request({ url: `/personal/services/remove/${id}`, method: 'delete' })
   }

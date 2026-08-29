@@ -259,8 +259,8 @@ export function addDynamicRoutes(menus: MenuInfo[]) {
   
   const addRoutes = (menuList: MenuInfo[]) => {
     for (const menu of menuList) {
-      // 只处理菜单类型(type=2)。外链菜单可能没有显式 path，此时使用稳定兜底路径承载 iframe。
-      if (menu.type === 2 && (menu.path || (menu.isFrame === 1 && menu.component))) {
+      // 只为普通菜单(type=2)生成内部路由；外链菜单由侧边栏点击时直接打开新窗口。
+      if (menu.type === 2 && menu.isFrame !== 1 && menu.path && menu.component) {
         const routeName = 'Dynamic-' + menu.id
         
         // 检查是否已经有同路径的静态路由
@@ -279,23 +279,7 @@ export function addDynamicRoutes(menus: MenuInfo[]) {
           continue
         }
         
-        // 判断是否是外链菜单
-        if (menu.isFrame === 1 && menu.component) {
-          // 外链菜单，使用 iframe 组件
-          router.addRoute('Layout', {
-            path: menuPath,
-            name: routeName,
-            component: IframeComponent,
-            meta: {
-              title: menu.name,
-              icon: menu.icon,
-              permission: menu.permission,
-              frameSrc: menu.component  // 外链地址存在 component 字段
-            }
-          })
-          addedRouteNames.add(routeName)
-          console.log(`[动态路由] ✓ 添加外链成功: ${menuPath} -> ${menu.component}`)
-        } else if (menu.component) {
+        if (menu.component) {
           // 普通菜单，加载组件
           const componentName = menu.component.startsWith('/') ? menu.component.slice(1) : menu.component
           const componentPath = `/src/views/${componentName}.vue`

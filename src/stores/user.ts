@@ -92,10 +92,9 @@ export const useUserStore = defineStore('user', () => {
     router.push('/login')
   }
   
-  // 检查权限
+  // 检查权限。权限列表已经由后端按菜单状态过滤，前端不再对 admin 做无条件放行。
   function hasPermission(permission: string): boolean {
-    if (!roles.value || !permissions.value) return false
-    if (roles.value.includes('admin')) return true
+    if (!permissions.value) return false
     return permissions.value.includes(permission)
   }
   

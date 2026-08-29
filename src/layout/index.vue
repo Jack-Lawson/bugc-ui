@@ -817,7 +817,7 @@ function normalizeMenuPath(menu: typeof userStore.menus[number]): string {
 
 function getMenuKey(menu: typeof userStore.menus[number]): string {
   const isExternal = menu.isFrame === 1 && menu.component
-  if (isExternal && menu.type !== 2) {
+  if (isExternal) {
     return `external:${menu.component}`
   }
   return normalizeMenuPath(menu)
@@ -1042,7 +1042,7 @@ function navigateByKey(key: string) {
   // 判断是否是外链目录
   if (key.startsWith('external:')) {
     const url = key.replace('external:', '')
-    window.open(url, '_blank')
+    window.open(url, '_blank', 'noopener,noreferrer')
     if (isMobileSiderViewport.value && layoutConfig.value.siderPosition !== 'top') {
       collapsed.value = true
     }

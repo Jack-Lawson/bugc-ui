@@ -27,7 +27,7 @@
         </n-form>
       </div>
 
-      <div v-if="enabledServices.length && !isMobile" class="service-entry-grid">
+      <div v-if="canAccessService && enabledServices.length && !isMobile" class="service-entry-grid">
         <button
           v-for="service in enabledServices"
           :key="service.id || service.code"
@@ -46,7 +46,7 @@
       </div>
 
       <div class="table-toolbar">
-        <n-button type="primary" @click="handleAdd">
+        <n-button v-if="canAddService" type="primary" @click="handleAdd">
           <template #icon><n-icon><AddOutline /></n-icon></template>
           新增服务
         </n-button>
@@ -88,13 +88,17 @@
                 <span>地址</span>
                 <code>{{ service.targetBaseUrl || '-' }}</code>
               </div>
-              <div class="service-mobile-card__actions">
-                <n-button size="small" type="primary" @click="openService(service)">
+              <div v-if="canOperateService" class="service-mobile-card__actions">
+                <n-button v-if="canAccessService" size="small" type="primary" @click="openService(service)">
                   <template #icon><n-icon><OpenOutline /></n-icon></template>
                   打开
                 </n-button>
-                <n-button size="small" @click="handleEdit(service)">编辑</n-button>
-                <n-button size="small" type="error" @click="handleDelete(service)">删除</n-button>
+                <n-button v-if="canTestService" size="small" @click="handleTest(service)">
+                  <template #icon><n-icon><FlashOutline /></n-icon></template>
+                  测试
+                </n-button>
+                <n-button v-if="canEditService" size="small" @click="handleEdit(service)">编辑</n-button>
+                <n-button v-if="canDeleteService" size="small" type="error" @click="handleDelete(service)">删除</n-button>
               </div>
             </article>
           </div>
@@ -185,17 +189,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref } from 'vue'
+import { computed, h, onMounted, reactive, ref, type VNode } from 'vue'
 import { NButton, NIcon, NSpace, NTag, useDialog, useMessage, type DataTableColumns, type FormInst, type FormRules } from 'naive-ui'
-import { AddOutline, OpenOutline, RefreshOutline, SearchOutline } from '@vicons/ionicons5'
+import { AddOutline, FlashOutline, OpenOutline, RefreshOutline, SearchOutline } from '@vicons/ionicons5'
 import { useRouter } from 'vue-router'
 import { personalServiceApi, type PersonalService } from '@/api/personalService'
 import { useResponsive } from '@/composables/useResponsive'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
 const message = useMessage()
 const dialog = useDialog()
 const { isMobile } = useResponsive()
+const userStore = useUserStore()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -240,6 +246,13 @@ const formData = reactive<PersonalService>(createDefaultForm())
 
 const modalTitle = computed(() => editingService.value ? '编辑个人服务' : '新增个人服务')
 const enabledServices = computed(() => services.value.filter(service => service.status === 1))
+const hasPermission = (permission: string) => userStore.hasPermission(permission)
+const canAddService = computed(() => hasPermission('personal:service:add'))
+const canEditService = computed(() => hasPermission('personal:service:edit'))
+const canDeleteService = computed(() => hasPermission('personal:service:remove'))
+const canAccessService = computed(() => hasPermission('personal:service:access'))
+const canTestService = computed(() => hasPermission('personal:service:test'))
+const canOperateService = computed(() => canAccessService.value || canTestService.value || canEditService.value || canDeleteService.value)
 
 const rules: FormRules = {
   name: [{ required: true, message: '请输入服务名称', trigger: 'blur' }],
@@ -273,19 +286,29 @@ const columns: DataTableColumns<PersonalService> = [
   {
     title: '操作',
     key: 'actions',
-    width: 300,
+    width: 360,
     fixed: 'right',
     render(row) {
-      return h(NSpace, null, {
-        default: () => [
-          h(NButton, { size: 'small', onClick: () => openService(row) }, {
-            icon: () => h(NIcon, null, { default: () => h(OpenOutline) }),
-            default: () => '打开'
-          }),
-          h(NButton, { size: 'small', onClick: () => handleEdit(row) }, { default: () => '编辑' }),
-          h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row) }, { default: () => '删除' })
-        ]
-      })
+      const buttons: VNode[] = []
+      if (canAccessService.value) {
+        buttons.push(h(NButton, { size: 'small', onClick: () => openService(row) }, {
+          icon: () => h(NIcon, null, { default: () => h(OpenOutline) }),
+          default: () => '打开'
+        }))
+      }
+      if (canTestService.value) {
+        buttons.push(h(NButton, { size: 'small', onClick: () => handleTest(row) }, {
+          icon: () => h(NIcon, null, { default: () => h(FlashOutline) }),
+          default: () => '测试'
+        }))
+      }
+      if (canEditService.value) {
+        buttons.push(h(NButton, { size: 'small', onClick: () => handleEdit(row) }, { default: () => '编辑' }))
+      }
+      if (canDeleteService.value) {
+        buttons.push(h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row) }, { default: () => '删除' }))
+      }
+      return buttons.length > 0 ? h(NSpace, null, { default: () => buttons }) : '-'
     }
   }
 ]
@@ -358,12 +381,20 @@ function handlePageSizeChange(pageSize: number) {
 }
 
 function handleAdd() {
+  if (!canAddService.value) {
+    message.warning('暂无新增权限')
+    return
+  }
   editingService.value = null
   resetForm()
   showModal.value = true
 }
 
 function handleEdit(row: PersonalService) {
+  if (!canEditService.value) {
+    message.warning('暂无编辑权限')
+    return
+  }
   editingService.value = row
   resetForm({ ...row })
   showModal.value = true
@@ -390,7 +421,28 @@ async function handleSubmit() {
   }
 }
 
+async function handleTest(row: PersonalService) {
+  if (!canTestService.value) {
+    message.warning('暂无测试权限')
+    return
+  }
+  if (!row.id) {
+    message.warning('请先保存服务后再测试')
+    return
+  }
+  const success = await personalServiceApi.test(row.id)
+  if (success) {
+    message.success('连接测试成功')
+  } else {
+    message.warning('连接测试失败')
+  }
+}
+
 function handleDelete(row: PersonalService) {
+  if (!canDeleteService.value) {
+    message.warning('暂无删除权限')
+    return
+  }
   dialog.warning({
     title: '提示',
     content: `确定要删除个人服务"${row.name}"吗？`,
@@ -406,6 +458,10 @@ function handleDelete(row: PersonalService) {
 
 
 function openService(row: PersonalService) {
+  if (!canAccessService.value) {
+    message.warning('暂无访问权限')
+    return
+  }
   if (row.accessMode === 'external') {
     window.open(getTargetEntryUrl(row), '_blank', 'noopener,noreferrer')
     return

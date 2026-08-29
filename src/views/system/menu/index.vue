@@ -140,6 +140,7 @@ import { menuApi, type SysMenu } from '@/api/system'
 import IconSelect from '@/components/IconSelect.vue'
 import { getIconComponent } from '@/utils/icons'
 import { useUserStore } from '@/stores/user'
+import { addDynamicRoutes, resetRouter } from '@/router'
 
 const message = useMessage()
 const dialog = useDialog()
@@ -310,6 +311,63 @@ const rules: FormRules = {
   type: [{ required: true, type: 'number', message: '请选择菜单类型', trigger: 'change' }]
 }
 
+// 刷新当前登录用户的菜单、权限和动态路由，保证菜单开关保存后立即影响页面。
+async function refreshUserRoutes() {
+  await userStore.getInfo()
+  resetRouter()
+  addDynamicRoutes(userStore.menus)
+}
+
+// 按菜单类型构造提交数据，避免表单切换类型后提交无效字段。
+function buildSubmitData(): SysMenu {
+  const data: SysMenu = {
+    ...formData,
+    name: formData.name?.trim() || '',
+    path: formData.path?.trim() || '',
+    component: formData.component?.trim() || '',
+    permission: formData.permission?.trim() || '',
+    parentId: formData.parentId ?? 0,
+    sort: formData.sort ?? 0,
+    status: formData.status ?? 1,
+    visible: formData.visible ?? 1,
+    isFrame: formData.isFrame ?? 0
+  }
+
+  if (data.type === 3) {
+    data.path = ''
+    data.component = ''
+    data.icon = ''
+    data.visible = 1
+    data.isFrame = 0
+    if (!data.permission) {
+      throw new Error('请输入权限标识')
+    }
+    return data
+  }
+
+  data.permission = ''
+  if (data.isFrame === 1) {
+    data.path = ''
+    if (!data.component) {
+      throw new Error('请输入外链地址')
+    }
+    if (!/^https?:\/\//i.test(data.component)) {
+      throw new Error('外链地址必须以 http:// 或 https:// 开头')
+    }
+    return data
+  }
+
+  if (!data.path) {
+    throw new Error('请输入路由地址')
+  }
+  if (data.type === 1) {
+    data.component = ''
+  } else if (!data.component) {
+    throw new Error('请输入组件路径')
+  }
+  return data
+}
+
 // 加载数据
 async function loadData() {
   loading.value = true
@@ -371,18 +429,22 @@ async function handleSubmit() {
     await formRef.value?.validate()
     submitLoading.value = true
 
+    const submitData = buildSubmitData()
     if (formData.id) {
-      await menuApi.update({ ...formData })
+      await menuApi.update(submitData)
       message.success('更新成功')
     } else {
-      await menuApi.create({ ...formData })
+      await menuApi.create(submitData)
       message.success('创建成功')
     }
 
     modalVisible.value = false
-    loadData()
+    await loadData()
+    await refreshUserRoutes()
   } catch (error) {
-    // 错误已在拦截器处理
+    if (error instanceof Error) {
+      message.warning(error.message)
+    }
   } finally {
     submitLoading.value = false
   }
@@ -399,7 +461,8 @@ function handleDelete(row: SysMenu) {
       try {
         await menuApi.delete(row.id!)
         message.success('删除成功')
-        loadData()
+        await loadData()
+        await refreshUserRoutes()
       } catch (error) {
         // 错误已在拦截器处理
       }
