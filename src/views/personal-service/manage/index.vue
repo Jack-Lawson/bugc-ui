@@ -93,10 +93,6 @@
                   <template #icon><n-icon><OpenOutline /></n-icon></template>
                   打开
                 </n-button>
-                <n-button size="small" :loading="isTesting(service)" @click="handleTest(service)">
-                  <template #icon><n-icon><FlashOutline /></n-icon></template>
-                  测试
-                </n-button>
                 <n-button size="small" @click="handleEdit(service)">编辑</n-button>
                 <n-button size="small" type="error" @click="handleDelete(service)">删除</n-button>
               </div>
@@ -180,7 +176,6 @@
       </n-form>
       <template #footer>
         <n-space justify="end">
-          <n-button v-if="editingService?.id" :loading="isTesting(editingService)" @click="handleTest(editingService)">测试访问</n-button>
           <n-button @click="showModal = false">取消</n-button>
           <n-button type="primary" :loading="submitting" @click="handleSubmit">确定</n-button>
         </n-space>
@@ -192,7 +187,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue'
 import { NButton, NIcon, NSpace, NTag, useDialog, useMessage, type DataTableColumns, type FormInst, type FormRules } from 'naive-ui'
-import { AddOutline, FlashOutline, OpenOutline, RefreshOutline, SearchOutline } from '@vicons/ionicons5'
+import { AddOutline, OpenOutline, RefreshOutline, SearchOutline } from '@vicons/ionicons5'
 import { useRouter } from 'vue-router'
 import { personalServiceApi, type PersonalService } from '@/api/personalService'
 import { useResponsive } from '@/composables/useResponsive'
@@ -204,7 +199,6 @@ const { isMobile } = useResponsive()
 
 const loading = ref(false)
 const submitting = ref(false)
-const testingServiceId = ref<number | null>(null)
 const services = ref<PersonalService[]>([])
 const showModal = ref(false)
 const editingService = ref<PersonalService | null>(null)
@@ -287,10 +281,6 @@ const columns: DataTableColumns<PersonalService> = [
           h(NButton, { size: 'small', onClick: () => openService(row) }, {
             icon: () => h(NIcon, null, { default: () => h(OpenOutline) }),
             default: () => '打开'
-          }),
-          h(NButton, { size: 'small', loading: isTesting(row), onClick: () => handleTest(row) }, {
-            icon: () => h(NIcon, null, { default: () => h(FlashOutline) }),
-            default: () => '测试'
           }),
           h(NButton, { size: 'small', onClick: () => handleEdit(row) }, { default: () => '编辑' }),
           h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row) }, { default: () => '删除' })
@@ -414,24 +404,6 @@ function handleDelete(row: PersonalService) {
   })
 }
 
-async function handleTest(row: PersonalService) {
-  if (!row.id) return
-  testingServiceId.value = row.id
-  try {
-    const success = await personalServiceApi.test(row.id)
-    if (success) {
-      message.success('访问成功')
-    } else {
-      message.error('访问失败')
-    }
-  } finally {
-    testingServiceId.value = null
-  }
-}
-
-function isTesting(row: Pick<PersonalService, 'id'> | null | undefined) {
-  return !!row?.id && testingServiceId.value === row.id
-}
 
 function openService(row: PersonalService) {
   if (row.accessMode === 'external') {

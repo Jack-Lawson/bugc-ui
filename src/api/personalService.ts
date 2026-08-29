@@ -57,9 +57,5 @@ export const personalServiceApi = {
 
   delete(id: number): Promise<void> {
     return request({ url: `/personal/services/remove/${id}`, method: 'delete' })
-  },
-
-  test(id: number): Promise<boolean> {
-    return request({ url: `/personal/services/test/${id}`, method: 'post' })
   }
 }
