@@ -93,7 +93,6 @@ import {
   BookOutline,
   ChatbubbleOutline,
   ChevronForwardOutline,
-  CloudOutline,
   CodeSlashOutline,
   DesktopOutline,
   FolderOutline,
@@ -159,8 +158,7 @@ const moduleGroups: ModuleGroup[] = [
     items: [
       createModule('文件列表', '/system/file', '上传、预览、移动和管理文件', FolderOutline, '#2563eb', '#dbeafe', true),
       createModule('图片管理', '/system/image', '筛选和管理图片资源', ImageOutline, '#db2777', '#fce7f3'),
-      createModule('视频管理', '/system/video', '维护视频文件和预览内容', VideocamOutline, '#9333ea', '#f3e8ff'),
-      createModule('文件配置', '/system/file-config', '配置本地和对象存储策略', CloudOutline, '#0891b2', '#cffafe')
+      createModule('视频管理', '/system/video', '维护视频文件和预览内容', VideocamOutline, '#9333ea', '#f3e8ff')
     ]
   },
   {

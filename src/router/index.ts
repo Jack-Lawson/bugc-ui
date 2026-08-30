@@ -113,12 +113,6 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '视频管理', icon: 'VideocamOutline' }
       },
       {
-        path: 'system/file-config',
-        name: 'SystemFileConfig',
-        component: () => import('@/views/system/file-config/index.vue'),
-        meta: { title: '文件配置', icon: 'CloudOutline' }
-      },
-      {
         path: 'system/customer',
         name: 'Customer',
         component: () => import('@/views/system/customer/index.vue'),
