@@ -315,11 +315,11 @@ export interface FileGroupListResult {
 }
 
 export const fileGroupApi = {
-  list(params?: { groupScope?: string; parentId?: number | null }): Promise<FileGroupListResult> {
+  list(params?: { groupScope?: string; parentId?: number | null; storageType?: string }): Promise<FileGroupListResult> {
     return request({ url: '/sys/file-group/list', method: 'get', params })
   },
 
-  children(params?: { groupScope?: string; parentId?: number | null }): Promise<SysFileGroup[]> {
+  children(params?: { groupScope?: string; parentId?: number | null; storageType?: string }): Promise<SysFileGroup[]> {
     return request({ url: '/sys/file-group/children', method: 'get', params })
   },
 
@@ -376,7 +376,7 @@ export interface FileUploadBatchResult {
 }
 
 export const fileApi = {
-  page(params: { page: number; pageSize: number; originalName?: string; fileType?: string }): Promise<PageResult<SysFile>> {
+  page(params: { page: number; pageSize: number; originalName?: string; fileType?: string; storageType?: string }): Promise<PageResult<SysFile>> {
     return request({ url: '/sys/file/page', method: 'get', params })
   },
 
@@ -385,7 +385,8 @@ export const fileApi = {
     pageSize: number
     groupId?: number | null
     fileScope?: string
-    originalName?: string 
+    originalName?: string
+    storageType?: string
   }): Promise<PageResult<SysFile>> {
     return request({ url: '/sys/file/page-by-group', method: 'get', params })
   },

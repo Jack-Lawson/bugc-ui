@@ -68,6 +68,13 @@
           </div>
           <div class="toolbar">
             <div class="toolbar-left">
+              <n-select
+                  v-model:value="storageFilter"
+                  class="storage-filter"
+                  :options="storageOptions"
+                  size="small"
+                  @update:value="handleStorageFilterChange"
+              />
               <n-button v-if="hasPermission('sys:file:upload')" @click="openCreateFolderModal">
                 <template #icon><n-icon><AddOutline/></n-icon></template>
                 {{ createOrganizerText }}
@@ -124,6 +131,9 @@
                 </n-button>
               </n-button-group>
             </div>
+          </div>
+          <div class="storage-hint">
+            当前上传目标：{{ currentStorageLabel }}；列表范围：{{ selectedStorageLabel }}
           </div>
         </template>
 
@@ -475,7 +485,15 @@ import {
   AddOutline, EllipsisHorizontalOutline, DocumentOutline, DocumentTextOutline,
   ImageOutline, VideocamOutline, CodeSlashOutline, FolderOpenOutline
 } from '@vicons/ionicons5'
-import {fileApi, fileGroupApi, type FileUploadBatchResult, type SysFile, type SysFileGroup} from '@/api/system'
+import {
+  fileApi,
+  fileConfigApi,
+  fileGroupApi,
+  type FileUploadBatchResult,
+  type SysFile,
+  type SysFileConfig,
+  type SysFileGroup
+} from '@/api/system'
 import {useUserStore} from '@/stores/user'
 import {normalizeApiAssetUrl} from '@/config/app'
 import {useResponsive} from '@/composables/useResponsive'
@@ -525,6 +543,38 @@ function resolveCategory(): FileCategory {
 
 const activeType = ref<FileCategory>(resolveCategory())
 const isFolderMode = computed(() => activeType.value === 'file')
+
+type StorageFilter = 'current' | 'all' | string
+
+const storageFilter = ref<StorageFilter>('current')
+const fileConfigs = ref<SysFileConfig[]>([])
+const currentStorageType = computed(() => fileConfigs.value.find(item => item.master === 1)?.storageType || '')
+const storageNameMap = computed(() => new Map(fileConfigs.value.map(item => [item.storageType, item.name || item.storageType])))
+const currentStorageLabel = computed(() => storageNameMap.value.get(currentStorageType.value) || currentStorageType.value || '当前主存储')
+const selectedStorageLabel = computed(() => {
+  if (storageFilter.value === 'current') {
+    return `当前存储（${currentStorageLabel.value}）`
+  }
+  if (storageFilter.value === 'all') {
+    return '全部存储'
+  }
+  return storageNameMap.value.get(storageFilter.value) || storageFilter.value
+})
+const storageOptions = computed(() => {
+  const options = [
+    {label: `当前存储（${currentStorageLabel.value}）`, value: 'current'},
+    {label: '全部存储', value: 'all'}
+  ]
+  const used = new Set(options.map(item => item.value))
+  fileConfigs.value.forEach(item => {
+    if (item.storageType && !used.has(item.storageType)) {
+      options.push({label: item.name || item.storageType, value: item.storageType})
+      used.add(item.storageType)
+    }
+  })
+  return options
+})
+const selectedStorageParam = computed(() => storageFilter.value)
 
 const categoryTitle = computed(() => {
   if (activeType.value === 'image') return '图片'
@@ -594,7 +644,7 @@ const allGroups = ref<SysFileGroup[]>([])
 const breadcrumb = ref<SysFileGroup[]>([])
 const ungroupedCount = ref(0)
 const categoryAllCount = ref(0)
-const activeGroupId = ref<number | null>(null)
+const activeGroupId = ref<number | null>(activeType.value === 'file' ? null : -1)
 
 // 视图模式
 const viewMode = ref<'list' | 'grid'>('grid')
@@ -756,11 +806,13 @@ const isIndeterminate = computed(() => selectedIds.value.length > 0 && selectedI
 // 加载分组
 async function loadGroups() {
   try {
-    const allRes = await fileGroupApi.list({groupScope: activeType.value})
+    const storageType = selectedStorageParam.value
+    const allRes = await fileGroupApi.list({groupScope: activeType.value, storageType})
     if (isFolderMode.value) {
       groups.value = await fileGroupApi.children({
         groupScope: activeType.value,
-        parentId: activeGroupId.value === -1 ? null : activeGroupId.value
+        parentId: activeGroupId.value === -1 ? null : activeGroupId.value,
+        storageType
       })
       breadcrumb.value = await fileGroupApi.breadcrumb(activeGroupId.value === -1 ? null : activeGroupId.value)
     } else {
@@ -785,7 +837,8 @@ async function loadFiles() {
       pageSize: pagination.pageSize,
       groupId: activeGroupId.value,
       fileScope: activeType.value,
-      originalName: searchName.value || undefined
+      originalName: searchName.value || undefined,
+      storageType: selectedStorageParam.value
     })
     files.value = res.list
     pagination.itemCount = Number(res.total)
@@ -803,6 +856,21 @@ function handlePageSizeChange(pageSize: number) {
   pagination.pageSize = pageSize
   pagination.page = 1
   loadFiles()
+}
+
+function handleStorageFilterChange() {
+  activeGroupId.value = activeType.value === 'file' ? null : -1
+  pagination.page = 1
+  loadGroups()
+  loadFiles()
+}
+
+async function loadStorageConfigs() {
+  try {
+    fileConfigs.value = await fileConfigApi.list()
+  } catch (error) {
+    fileConfigs.value = []
+  }
 }
 
 // 选择分组
@@ -1329,6 +1397,7 @@ function flattenFolderOptions(items: SysFileGroup[]) {
 }
 
 onMounted(() => {
+  loadStorageConfigs()
   loadGroups()
   loadFiles()
 })
@@ -1339,7 +1408,7 @@ watch(
     const nextCategory = resolveCategory()
     if (activeType.value !== nextCategory) {
       activeType.value = nextCategory
-      activeGroupId.value = null
+      activeGroupId.value = nextCategory === 'file' ? null : -1
       pagination.page = 1
       loadGroups()
       loadFiles()
@@ -1508,6 +1577,17 @@ watch(
 }
 
 .toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 8px; }
+
+.storage-filter {
+  width: 190px;
+  flex-shrink: 0;
+}
+
+.storage-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--n-text-color-3);
+}
 
 .upload-dialog {
   display: grid;
@@ -1763,6 +1843,11 @@ watch(
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+  }
+
+  .storage-filter {
+    width: 100%;
+    grid-column: 1 / -1;
   }
 
   .file-layout--image .toolbar-left,
