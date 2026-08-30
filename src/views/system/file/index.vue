@@ -501,8 +501,12 @@ type PreparedUploadFile = {
   file: File
   relativePath?: string
 }
+type UploadValidationResult = PreparedUploadFile & {
+  reason?: string
+}
 
 const UPLOAD_BATCH_SIZE = 10
+const IMAGE_HEADER_READ_SIZE = 512
 
 const props = defineProps<{
   category?: FileCategory
@@ -961,14 +965,15 @@ async function uploadPreparedFiles(uploadFiles: PreparedUploadFile[]): Promise<F
     }
   }
   uploading.value = true
-  const validFiles = uploadFiles.filter(item => validateUploadFile(item.file))
+  const validationResults = await Promise.all(uploadFiles.map(validatePreparedUploadFile))
+  const validFiles = validationResults.filter(item => !item.reason)
   const result: FileUploadBatchResult = {
     successCount: 0,
-    failCount: uploadFiles.length - validFiles.length,
+    failCount: validationResults.length - validFiles.length,
     successFiles: [],
-    failFiles: uploadFiles
-        .filter(item => !validFiles.includes(item))
-        .map(item => ({fileName: item.file.name, reason: '文件类型不符合当前资源库'}))
+    failFiles: validationResults
+        .filter(item => item.reason)
+        .map(item => ({fileName: item.file.name, reason: item.reason || '文件类型不符合当前资源库'}))
   }
 
   try {
@@ -1090,28 +1095,92 @@ async function readDropEntry(entry: DropEntry, parentPath: string): Promise<Uplo
     return []
   }
   const reader = entry.createReader()
-  const children = await new Promise<DropEntry[]>(resolve => {
-    reader.readEntries(resolve)
-  })
+  const children = await readAllDropEntries(reader)
   const nested = await Promise.all(children.map(child => readDropEntry(child, currentPath)))
   return nested.flat()
 }
 
-function validateUploadFile(file: File): boolean {
+async function readAllDropEntries(reader: { readEntries: (callback: (entries: DropEntry[]) => void) => void }): Promise<DropEntry[]> {
+  const entries: DropEntry[] = []
+  while (true) {
+    const batch = await new Promise<DropEntry[]>(resolve => {
+      reader.readEntries(resolve)
+    })
+    if (batch.length === 0) {
+      return entries
+    }
+    entries.push(...batch)
+  }
+}
+
+async function validatePreparedUploadFile(item: PreparedUploadFile): Promise<UploadValidationResult> {
+  const reason = await validateUploadFile(item.file)
+  return {...item, reason}
+}
+
+async function validateUploadFile(file: File): Promise<string | undefined> {
   const fileType = file.type || ''
   if (activeType.value === 'image' && !fileType.startsWith('image/')) {
-    message.warning('图片库只能上传图片文件')
-    return false
+    return '图片库只能上传图片文件'
+  }
+  if (activeType.value === 'image' && !await hasSupportedImageSignature(file)) {
+    return '图片文件内容无效或格式不支持'
   }
   if (activeType.value === 'video' && !fileType.startsWith('video/')) {
-    message.warning('视频库只能上传视频文件')
-    return false
+    return '视频库只能上传视频文件'
   }
   if (activeType.value === 'file' && (fileType.startsWith('image/') || fileType.startsWith('video/'))) {
-    message.warning('文件库不能上传图片或视频文件')
-    return false
+    return '文件库不能上传图片或视频文件'
   }
-  return true
+  return undefined
+}
+
+async function hasSupportedImageSignature(file: File): Promise<boolean> {
+  const suffix = getFileSuffix(file.name)
+  const header = new Uint8Array(await file.slice(0, IMAGE_HEADER_READ_SIZE).arrayBuffer())
+  switch (suffix) {
+    case 'jpg':
+    case 'jpeg':
+      return startsWithBytes(header, [0xFF, 0xD8, 0xFF])
+    case 'png':
+      return startsWithBytes(header, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+    case 'gif':
+      return startsWithText(header, 'GIF87a') || startsWithText(header, 'GIF89a')
+    case 'bmp':
+      return startsWithText(header, 'BM')
+    case 'webp':
+      return header.length >= 12
+          && startsWithText(header, 'RIFF')
+          && header[8] === 'W'.charCodeAt(0)
+          && header[9] === 'E'.charCodeAt(0)
+          && header[10] === 'B'.charCodeAt(0)
+          && header[11] === 'P'.charCodeAt(0)
+    case 'ico':
+      return startsWithBytes(header, [0x00, 0x00, 0x01, 0x00])
+    case 'svg':
+      return headerText(header).includes('<svg') || headerText(header).includes(':svg')
+    default:
+      return false
+  }
+}
+
+function getFileSuffix(fileName: string): string {
+  const index = fileName.lastIndexOf('.')
+  return index >= 0 ? fileName.slice(index + 1).toLowerCase() : ''
+}
+
+function startsWithBytes(bytes: Uint8Array, signature: number[]): boolean {
+  if (bytes.length < signature.length) return false
+  return signature.every((value, index) => bytes[index] === value)
+}
+
+function startsWithText(bytes: Uint8Array, signature: string): boolean {
+  if (bytes.length < signature.length) return false
+  return Array.from(signature).every((char, index) => bytes[index] === char.charCodeAt(0))
+}
+
+function headerText(bytes: Uint8Array): string {
+  return new TextDecoder('utf-8', {fatal: false}).decode(bytes).toLowerCase()
 }
 
 // 预览
