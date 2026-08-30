@@ -487,11 +487,10 @@ import {
 } from '@vicons/ionicons5'
 import {
   fileApi,
-  fileConfigApi,
   fileGroupApi,
   type FileUploadBatchResult,
   type SysFile,
-  type SysFileConfig,
+  type FileStorageOption,
   type SysFileGroup
 } from '@/api/system'
 import {useUserStore} from '@/stores/user'
@@ -547,10 +546,11 @@ const isFolderMode = computed(() => activeType.value === 'file')
 type StorageFilter = 'current' | 'all' | string
 
 const storageFilter = ref<StorageFilter>('current')
-const fileConfigs = ref<SysFileConfig[]>([])
-const currentStorageType = computed(() => fileConfigs.value.find(item => item.master === 1)?.storageType || '')
-const storageNameMap = computed(() => new Map(fileConfigs.value.map(item => [item.storageType, item.name || item.storageType])))
-const currentStorageLabel = computed(() => storageNameMap.value.get(currentStorageType.value) || currentStorageType.value || '当前主存储')
+const currentStorageType = ref('')
+const currentStorageName = ref('')
+const availableStorageOptions = ref<FileStorageOption[]>([])
+const storageNameMap = computed(() => new Map(availableStorageOptions.value.map(item => [item.type, item.name || item.type])))
+const currentStorageLabel = computed(() => currentStorageName.value || storageNameMap.value.get(currentStorageType.value) || currentStorageType.value || '当前主存储')
 const selectedStorageLabel = computed(() => {
   if (storageFilter.value === 'current') {
     return `当前存储（${currentStorageLabel.value}）`
@@ -566,10 +566,11 @@ const storageOptions = computed(() => {
     {label: '全部存储', value: 'all'}
   ]
   const used = new Set(options.map(item => item.value))
-  fileConfigs.value.forEach(item => {
-    if (item.storageType && !used.has(item.storageType)) {
-      options.push({label: item.name || item.storageType, value: item.storageType})
-      used.add(item.storageType)
+  availableStorageOptions.value.forEach(item => {
+    if (item.type && !used.has(item.type)) {
+      const suffix = item.count > 0 ? `（${item.count}）` : ''
+      options.push({label: `${item.name || item.type}${suffix}`, value: item.type})
+      used.add(item.type)
     }
   })
   return options
@@ -822,6 +823,9 @@ async function loadGroups() {
     allGroups.value = allRes.groups
     ungroupedCount.value = allRes.ungroupedCount
     categoryAllCount.value = Number(allRes.allCount || 0)
+    currentStorageType.value = allRes.currentStorageType || ''
+    currentStorageName.value = allRes.currentStorageName || ''
+    availableStorageOptions.value = allRes.storageOptions || []
   } catch (error) {
     // 错误已在拦截器处理
   }
@@ -863,14 +867,6 @@ function handleStorageFilterChange() {
   pagination.page = 1
   loadGroups()
   loadFiles()
-}
-
-async function loadStorageConfigs() {
-  try {
-    fileConfigs.value = await fileConfigApi.list()
-  } catch (error) {
-    fileConfigs.value = []
-  }
 }
 
 // 选择分组
@@ -1397,7 +1393,6 @@ function flattenFolderOptions(items: SysFileGroup[]) {
 }
 
 onMounted(() => {
-  loadStorageConfigs()
   loadGroups()
   loadFiles()
 })

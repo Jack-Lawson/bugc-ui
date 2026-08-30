@@ -312,6 +312,16 @@ export interface FileGroupListResult {
   groups: SysFileGroup[]
   ungroupedCount: number
   allCount?: number
+  currentStorageType?: string
+  currentStorageName?: string
+  storageOptions?: FileStorageOption[]
+}
+
+export interface FileStorageOption {
+  type: string
+  name: string
+  count: number
+  current: boolean
 }
 
 export const fileGroupApi = {
