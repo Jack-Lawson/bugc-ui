@@ -249,7 +249,7 @@ async function handleFileChange(e: Event) {
   try {
     message.loading('头像上传中...')
     const result = await fileApi.uploadImage(file)
-    const avatarUrl = typeof result === 'string' ? result : (result.url || result.filePath)
+    const avatarUrl = resolveUploadedAvatarUrl(result)
     if (!avatarUrl) {
       message.warning('上传成功，但未返回头像地址')
       return
@@ -263,6 +263,16 @@ async function handleFileChange(e: Event) {
 
   // 清空input，允许重复选择同一文件
   target.value = ''
+}
+
+function resolveUploadedAvatarUrl(result: string | { id?: number; url?: string; filePath?: string }): string {
+  if (typeof result === 'string') {
+    return result
+  }
+  if (result.id) {
+    return fileApi.getPreviewUrl(result.id)
+  }
+  return result.url || result.filePath || ''
 }
 
 async function loadProfile() {
