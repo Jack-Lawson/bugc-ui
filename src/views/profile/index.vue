@@ -9,8 +9,8 @@
             <div class="avatar-wrapper" @click="triggerUpload">
               <n-avatar
                 round
-                :size="100"
-                :src="formData.avatar || undefined"
+                :size="avatarSize"
+                :src="displayAvatar || undefined"
                 class="profile-avatar"
               >
                 {{ formData.nickname?.charAt(0) || 'U' }}
@@ -88,7 +88,7 @@
             label-placement="top"
             require-mark-placement="right-hanging"
           >
-            <n-grid :cols="2" :x-gap="24">
+            <n-grid :cols="formGridCols" :x-gap="24" :y-gap="4" responsive="screen">
               <n-gi>
                 <n-form-item label="昵称" path="nickname">
                   <n-input v-model:value="formData.nickname" placeholder="请输入昵称" />
@@ -115,7 +115,7 @@
                   <n-input v-model:value="formData.email" placeholder="请输入邮箱" />
                 </n-form-item>
               </n-gi>
-              <n-gi :span="2">
+              <n-gi :span="isMobile ? 1 : 2">
                 <n-form-item label="个人简介">
                   <n-input
                     v-model:value="formData.remark"
@@ -141,20 +141,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useMessage, type FormInst, type FormRules } from 'naive-ui'
 import { CameraOutline, PersonOutline, CreateOutline } from '@vicons/ionicons5'
 import { authApi, type ProfileInfo } from '@/api/auth'
 import { fileApi } from '@/api/system'
 import { useUserStore } from '@/stores/user'
+import { useResponsive } from '@/composables/useResponsive'
+import { normalizeApiAssetUrl } from '@/config/app'
 
 const message = useMessage()
 const userStore = useUserStore()
+const { isMobile, isTouchLayout } = useResponsive()
 
 const formRef = ref<FormInst | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const loading = ref(false)
 const saving = ref(false)
+
+const avatarSize = computed(() => isMobile.value ? 82 : 100)
+const formGridCols = computed(() => isTouchLayout.value ? 1 : 2)
+const displayAvatar = computed(() => normalizeApiAssetUrl(formData.value.avatar))
 
 const formData = ref<Partial<ProfileInfo>>({
   id: 0,
@@ -229,7 +236,12 @@ async function handleFileChange(e: Event) {
   try {
     message.loading('头像上传中...')
     const result = await fileApi.uploadImage(file)
-    formData.value.avatar = result.url
+    const avatarUrl = typeof result === 'string' ? result : (result.url || result.filePath)
+    if (!avatarUrl) {
+      message.warning('上传成功，但未返回头像地址')
+      return
+    }
+    formData.value.avatar = normalizeApiAssetUrl(avatarUrl)
     message.success('头像上传成功')
   } catch (error) {
     message.error('头像上传失败')
@@ -306,6 +318,8 @@ onMounted(() => {
 <style scoped>
 .profile-page {
   padding: 24px;
+  min-height: 100%;
+  overflow-x: hidden;
 }
 
 .profile-layout {
@@ -431,6 +445,9 @@ onMounted(() => {
   font-size: 13px;
   color: #374151;
   font-weight: 500;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 /* 表单操作按钮 */
@@ -469,5 +486,121 @@ onMounted(() => {
 
 :global(body.dark-theme) .profile-avatar {
   border-color: #3f3f46;
+}
+
+@media (max-width: 1024px) {
+  .profile-page {
+    padding: 16px;
+  }
+
+  .profile-layout {
+    flex-direction: column;
+    gap: 16px;
+    max-width: 720px;
+  }
+
+  .profile-left {
+    width: 100%;
+  }
+
+  .profile-right {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .profile-page {
+    padding: 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  :global(.capacitor-native) .profile-page {
+    min-height: 100dvh;
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+
+  .profile-layout {
+    gap: 12px;
+  }
+
+  .user-card,
+  .info-card,
+  .form-card {
+    border-radius: 10px;
+  }
+
+  .user-card :deep(.n-card__content),
+  .info-card :deep(.n-card__content),
+  .form-card :deep(.n-card__content) {
+    padding: 16px;
+  }
+
+  .info-card :deep(.n-card-header),
+  .form-card :deep(.n-card-header) {
+    padding: 16px 16px 0;
+  }
+
+  .avatar-section {
+    padding: 4px 0 0;
+    gap: 8px;
+  }
+
+  .avatar-overlay {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.28);
+  }
+
+  .user-nickname {
+    max-width: 100%;
+    font-size: 18px;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+
+  .info-row {
+    align-items: flex-start;
+    gap: 16px;
+    padding: 12px 0;
+  }
+
+  .info-label {
+    flex: 0 0 72px;
+    line-height: 20px;
+  }
+
+  .info-value {
+    line-height: 20px;
+  }
+
+  .form-card :deep(.n-form-item) {
+    margin-bottom: 14px;
+  }
+
+  .form-card :deep(.n-input),
+  .form-card :deep(.n-input-wrapper) {
+    min-height: 42px;
+  }
+
+  .form-card :deep(.n-radio-group .n-space) {
+    gap: 10px 18px !important;
+  }
+
+  .form-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    margin: 4px -16px -16px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    background: #ffffff;
+  }
+
+  .form-actions :deep(.n-button) {
+    flex: 1;
+    min-height: 42px;
+  }
+
+  :global(body.dark-theme) .form-actions {
+    background: #18181c;
+  }
 }
 </style>

@@ -1,6 +1,57 @@
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { existsSync, mkdirSync, copyFileSync } from 'fs'
 import { resolve } from 'path'
+
+const staticHistoryFallbackRoutes = [
+  'login',
+  'register',
+  'dashboard',
+  'profile',
+  'personal-service/manage',
+  'personal/service/manage',
+  'server/router',
+  'system/user',
+  'system/role',
+  'system/menu',
+  'system/dict',
+  'system/config',
+  'system/file',
+  'system/image',
+  'system/video',
+  'system/customer',
+  'message/notice',
+  'message/chat',
+  'org/dept',
+  'org/post',
+  'log/operlog',
+  'log/loginlog',
+  'monitor/online',
+  'monitor/job',
+  'monitor/cache',
+  'monitor/api-access',
+  'monitor/server',
+  'monitor/server-manager',
+  'test/test',
+  'tool/gen',
+  'tools/hb'
+]
+
+function createHistoryRouteEntrypoints(outDir: string) {
+  return {
+    name: 'bugc-history-route-entrypoints',
+    closeBundle() {
+      const rootIndex = resolve(outDir, 'index.html')
+      if (!existsSync(rootIndex)) return
+
+      for (const route of staticHistoryFallbackRoutes) {
+        const routeDir = resolve(outDir, route)
+        mkdirSync(routeDir, { recursive: true })
+        copyFileSync(rootIndex, resolve(routeDir, 'index.html'))
+      }
+    }
+  }
+}
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -23,7 +74,7 @@ export default defineConfig(({ mode }) => {
   const buildOutDir = env.VITE_BUILD_OUT_DIR || 'dist'
 
   return {
-    plugins: [vue()],
+    plugins: [vue(), createHistoryRouteEntrypoints(resolve(__dirname, buildOutDir))],
     base: '/',
     resolve: {
       alias: {
