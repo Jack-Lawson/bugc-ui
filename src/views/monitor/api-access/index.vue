@@ -74,12 +74,36 @@
       </div>
 
       <n-data-table
+        v-if="!isTouchLayout"
         :columns="columns"
         :data="tableData"
         :loading="loading"
         :row-key="(row: ApiAccessLog) => row.id ?? `${row.apiPath || ''}-${row.startTime || ''}`"
-        :scroll-x="isTouchLayout ? 920 : undefined"
       />
+      <div v-else class="mobile-log-list">
+        <n-spin :show="loading">
+          <article v-for="row in tableData" :key="row.id ?? `${row.apiPath || ''}-${row.startTime || ''}`" class="mobile-log-item">
+            <div class="mobile-log-item__main">
+              <div class="mobile-log-item__title">
+                <strong>{{ row.apiPath || '-' }}</strong>
+                <n-tag :type="row.success === 1 ? 'success' : 'error'" size="small">
+                  {{ row.success === 1 ? '成功' : '失败' }}
+                </n-tag>
+              </div>
+              <div class="mobile-log-item__meta">
+                <span>{{ row.method || '-' }}</span>
+                <span>{{ row.statusCode || '-' }}</span>
+                <span>{{ row.costTime ?? '-' }}ms</span>
+              </div>
+              <div class="mobile-log-item__meta">
+                <span>用户 {{ row.userId || '-' }}</span>
+                <span>{{ row.startTime || '-' }}</span>
+              </div>
+            </div>
+          </article>
+          <n-empty v-if="!tableData.length" description="暂无日志" />
+        </n-spin>
+      </div>
 
       <div class="pagination-container">
         <n-pagination
@@ -406,5 +430,49 @@ onUnmounted(() => {
       justify-content: center;
     }
   }
+}
+
+.mobile-log-list {
+  min-width: 0;
+  border-top: 1px solid #eef2f7;
+}
+
+.mobile-log-item {
+  display: grid;
+  gap: 6px;
+  padding: 12px 0;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.mobile-log-item__main {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mobile-log-item__title,
+.mobile-log-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mobile-log-item__title strong,
+.mobile-log-item__meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-log-item__title strong {
+  min-width: 0;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.mobile-log-item__meta {
+  color: #64748b;
+  font-size: 12px;
 }
 </style>
