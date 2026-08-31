@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { authApi, type LoginParams, type UserInfo, type MenuInfo } from '@/api/auth'
 import router, { resetRouter } from '@/router'
 import { normalizeApiAssetUrl, storageKeys } from '@/config/app'
+import { userApi } from '@/api/system'
 
 export const useUserStore = defineStore('user', () => {
   function readStoredToken() {
@@ -59,11 +60,26 @@ export const useUserStore = defineStore('user', () => {
   // 获取用户信息
   async function getInfo() {
     const res = await authApi.getInfo()
-    user.value = res.user
+    user.value = await fillUserAvatar(res.user)
     roles.value = res.roles
     permissions.value = res.permissions
     menus.value = res.menus
     return res
+  }
+
+  async function fillUserAvatar(currentUser: UserInfo): Promise<UserInfo> {
+    if (currentUser.avatar || !currentUser.id) {
+      return currentUser
+    }
+    try {
+      const detail = await userApi.detail(currentUser.id)
+      return {
+        ...currentUser,
+        avatar: detail.user.avatar || currentUser.avatar
+      }
+    } catch (error) {
+      return currentUser
+    }
   }
   
   // 退出登录

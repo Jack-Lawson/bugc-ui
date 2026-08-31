@@ -146,7 +146,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useMessage, type FormInst, type FormRules } from 'naive-ui'
 import { CameraOutline, PersonOutline, CreateOutline } from '@vicons/ionicons5'
 import { authApi, type ProfileInfo } from '@/api/auth'
-import { fileApi } from '@/api/system'
+import { fileApi, userApi } from '@/api/system'
 import { useUserStore } from '@/stores/user'
 import { useResponsive } from '@/composables/useResponsive'
 import { normalizeApiAssetUrl } from '@/config/app'
@@ -279,21 +279,22 @@ async function loadProfile() {
   try {
     loading.value = true
     const data = await authApi.getProfile()
+    const profile = await fillProfileAvatar(data)
     formData.value = {
-      id: data.id,
-      username: data.username,
-      nickname: data.nickname,
-      avatar: data.avatar || '',
-      email: data.email || '',
-      phone: data.phone || '',
-      gender: data.gender ?? 0,
-      status: data.status ?? 1,
-      deptId: data.deptId,
-      deptName: data.deptName || '',
-      postNames: data.postNames || '',
-      remark: data.remark || '',
-      userType: data.userType || '',
-      createTime: data.createTime || ''
+      id: profile.id,
+      username: profile.username,
+      nickname: profile.nickname,
+      avatar: profile.avatar || '',
+      email: profile.email || '',
+      phone: profile.phone || '',
+      gender: profile.gender ?? 0,
+      status: profile.status ?? 1,
+      deptId: profile.deptId,
+      deptName: profile.deptName || '',
+      postNames: profile.postNames || '',
+      remark: profile.remark || '',
+      userType: profile.userType || '',
+      createTime: profile.createTime || ''
     }
     avatarPreviewVersion.value = 0
     // 保存原始数据用于重置
@@ -302,6 +303,21 @@ async function loadProfile() {
     message.error('加载个人信息失败')
   } finally {
     loading.value = false
+  }
+}
+
+async function fillProfileAvatar(profile: ProfileInfo): Promise<ProfileInfo> {
+  if (profile.avatar || !profile.id) {
+    return profile
+  }
+  try {
+    const detail = await userApi.detail(profile.id)
+    return {
+      ...profile,
+      avatar: detail.user.avatar || profile.avatar
+    }
+  } catch (error) {
+    return profile
   }
 }
 
