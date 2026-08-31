@@ -50,7 +50,7 @@
         <template #header>
           <div class="card-header">
             <span>{{ selectedDeptName ? `【${selectedDeptName}】部门成员` : '所有用户' }}</span>
-            <n-space>
+            <n-space v-if="!isTouchLayout">
               <n-button v-if="selectedDeptId && hasPermission('sys:dept:edit')" size="small" @click="handleEditDept">
                 编辑部门
               </n-button>
@@ -63,6 +63,12 @@
                 删除部门
               </n-button>
             </n-space>
+            <n-dropdown v-else-if="selectedDeptId" trigger="click" :options="deptActionOptions" @select="handleDeptAction">
+              <n-button size="small" secondary>
+                操作
+                <template #icon><n-icon><EllipsisHorizontalOutline /></n-icon></template>
+              </n-button>
+            </n-dropdown>
           </div>
         </template>
 
@@ -179,7 +185,7 @@ import {
   type TreeOption,
   type TreeDropInfo
 } from 'naive-ui'
-import {SearchOutline, AddOutline} from '@vicons/ionicons5'
+import {SearchOutline, AddOutline, EllipsisHorizontalOutline} from '@vicons/ionicons5'
 import {deptApi, type SysDept} from '@/api/org'
 import {userApi, type SysUser} from '@/api/system'
 import {useUserStore} from '@/stores/user'
@@ -201,6 +207,12 @@ const selectedDeptName = ref('')
 
 const deptOptions = computed(() => [
   {id: 0, deptName: '主目录', children: tableData.value}
+])
+
+const deptActionOptions = computed(() => [
+  ...(selectedDeptId.value && hasPermission('sys:dept:edit') ? [{label: '编辑部门', key: 'edit'}] : []),
+  ...(selectedDeptId.value && hasPermission('sys:dept:add') ? [{label: '新增子部门', key: 'add'}] : []),
+  ...(selectedDeptId.value && hasPermission('sys:dept:delete') ? [{label: '删除部门', key: 'delete'}] : [])
 ])
 
 const deptNodeProps = ({option}: { option: TreeOption }): HTMLAttributes => {
@@ -394,6 +406,20 @@ function handleAdd(parentId: number = 0) {
   modalVisible.value = true
 }
 
+function handleDeptAction(key: string) {
+  if (key === 'edit') {
+    handleEditDept()
+    return
+  }
+  if (key === 'add') {
+    handleAdd(selectedDeptId.value)
+    return
+  }
+  if (key === 'delete') {
+    handleDeleteDept()
+  }
+}
+
 async function handleEditDept() {
   if (!selectedDeptId.value) return
   try {
@@ -497,15 +523,14 @@ onMounted(() => {
 
 .mobile-user-card {
   display: grid;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  gap: 6px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eef2f7;
   background: #fff;
 }
 
 .mobile-user-card + .mobile-user-card {
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .mobile-user-card__header,
@@ -535,7 +560,7 @@ onMounted(() => {
 
 .mobile-user-card__title strong {
   color: #0f172a;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .mobile-user-card__title span {
@@ -564,36 +589,61 @@ onMounted(() => {
     gap: 12px;
   }
 
+  .dept-tree-card,
+  .user-list-card {
+    border-radius: 8px;
+    box-shadow: none;
+  }
+
   .dept-tree-card {
     width: 100%;
   }
 
   .dept-tree-wrapper {
-    max-height: 260px;
+    max-height: 220px;
     height: auto;
   }
 
+  .dept-tree-card :deep(.n-card-header),
+  .user-list-card :deep(.n-card-header) {
+    padding: 12px 12px 8px;
+  }
+
+  .dept-tree-card :deep(.n-card__content),
+  .user-list-card :deep(.n-card__content),
+  .dept-tree-card :deep(.n-card__footer) {
+    padding: 8px 12px 12px;
+  }
+
+  .dept-tree-card :deep(.n-tree-node) {
+    min-height: 28px;
+  }
+
+  .dept-tree-card :deep(.n-tree-node-content) {
+    min-width: 0;
+  }
+
   .card-header {
-    align-items: flex-start;
+    align-items: center;
     gap: 10px;
   }
 
   .card-header > span {
+    flex: 1;
     min-width: 0;
     font-size: 14px;
     line-height: 28px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .card-header :deep(.n-space) {
-    flex: 0 0 auto;
-    flex-wrap: nowrap !important;
-    overflow-x: auto;
-    max-width: 58%;
-    scrollbar-width: none;
+  .mobile-user-list {
+    border-top: 1px solid #eef2f7;
   }
 
-  .card-header :deep(.n-space)::-webkit-scrollbar {
-    display: none;
+  .mobile-user-card__meta {
+    grid-template-columns: 34px minmax(0, 1fr);
   }
 }
 </style>

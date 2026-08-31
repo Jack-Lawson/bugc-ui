@@ -42,7 +42,7 @@
         <template #header>
           <div class="card-header">
             <span>{{ selectedPostName ? `【${selectedPostName}】岗位成员` : '所有用户' }}</span>
-            <n-space>
+            <n-space v-if="!isTouchLayout">
                <n-button v-if="selectedPostId && hasPermission('sys:post:edit')" size="small" @click="handleEditPost">
                 编辑岗位
               </n-button>
@@ -53,6 +53,12 @@
                 删除岗位
               </n-button>
             </n-space>
+            <n-dropdown v-else-if="selectedPostId" trigger="click" :options="postActionOptions" @select="handlePostAction">
+              <n-button size="small" secondary>
+                操作
+                <template #icon><n-icon><EllipsisHorizontalOutline /></n-icon></template>
+              </n-button>
+            </n-dropdown>
           </div>
         </template>
 
@@ -153,7 +159,7 @@
 <script setup lang="ts">
 import { ref, reactive, h, onMounted, computed, type HTMLAttributes } from 'vue'
 import { NButton, NTag, NSpace, NPagination, useMessage, useDialog, type DataTableColumns, type FormInst, type FormRules, type TreeOption, type TreeDropInfo } from 'naive-ui'
-import { SearchOutline, AddOutline } from '@vicons/ionicons5'
+import { SearchOutline, AddOutline, EllipsisHorizontalOutline } from '@vicons/ionicons5'
 import { postApi, userApi, type SysUser, type SysPost } from '@/api/system'
 import { useUserStore } from '@/stores/user'
 import { useResponsive } from '@/composables/useResponsive'
@@ -173,6 +179,12 @@ const selectedPostName = ref('')
 
 const postTreeOptions = computed(() => [
   { id: 0, postName: '顶级岗位', children: postTreeData.value }
+])
+
+const postActionOptions = computed(() => [
+  ...(selectedPostId.value && hasPermission('sys:post:edit') ? [{ label: '编辑岗位', key: 'edit' }] : []),
+  ...(selectedPostId.value && hasPermission('sys:post:add') ? [{ label: '新增子岗位', key: 'add' }] : []),
+  ...(selectedPostId.value && hasPermission('sys:post:delete') ? [{ label: '删除岗位', key: 'delete' }] : [])
 ])
 
 const postNodeProps = ({ option }: { option: TreeOption }): HTMLAttributes => {
@@ -353,6 +365,20 @@ function handleAdd(parentId: number = 0) {
   modalVisible.value = true
 }
 
+function handlePostAction(key: string) {
+  if (key === 'edit') {
+    handleEditPost()
+    return
+  }
+  if (key === 'add') {
+    handleAdd(selectedPostId.value)
+    return
+  }
+  if (key === 'delete') {
+    handleDeletePost()
+  }
+}
+
 async function handleEditPost() {
   if (!selectedPostId.value) return
   try {
@@ -456,15 +482,14 @@ onMounted(() => {
 
 .mobile-user-card {
   display: grid;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  gap: 6px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eef2f7;
   background: #fff;
 }
 
 .mobile-user-card + .mobile-user-card {
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .mobile-user-card__header,
@@ -494,7 +519,7 @@ onMounted(() => {
 
 .mobile-user-card__title strong {
   color: #0f172a;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .mobile-user-card__title span {
@@ -523,36 +548,61 @@ onMounted(() => {
     gap: 12px;
   }
 
+  .post-tree-card,
+  .user-list-card {
+    border-radius: 8px;
+    box-shadow: none;
+  }
+
   .post-tree-card {
     width: 100%;
   }
 
   .post-tree-wrapper {
-    max-height: 260px;
+    max-height: 220px;
     height: auto;
   }
 
+  .post-tree-card :deep(.n-card-header),
+  .user-list-card :deep(.n-card-header) {
+    padding: 12px 12px 8px;
+  }
+
+  .post-tree-card :deep(.n-card__content),
+  .user-list-card :deep(.n-card__content),
+  .post-tree-card :deep(.n-card__footer) {
+    padding: 8px 12px 12px;
+  }
+
+  .post-tree-card :deep(.n-tree-node) {
+    min-height: 28px;
+  }
+
+  .post-tree-card :deep(.n-tree-node-content) {
+    min-width: 0;
+  }
+
   .card-header {
-    align-items: flex-start;
+    align-items: center;
     gap: 10px;
   }
 
   .card-header > span {
+    flex: 1;
     min-width: 0;
     font-size: 14px;
     line-height: 28px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .card-header :deep(.n-space) {
-    flex: 0 0 auto;
-    flex-wrap: nowrap !important;
-    overflow-x: auto;
-    max-width: 58%;
-    scrollbar-width: none;
+  .mobile-user-list {
+    border-top: 1px solid #eef2f7;
   }
 
-  .card-header :deep(.n-space)::-webkit-scrollbar {
-    display: none;
+  .mobile-user-card__meta {
+    grid-template-columns: 34px minmax(0, 1fr);
   }
 }
 </style>
