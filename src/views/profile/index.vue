@@ -8,6 +8,7 @@
           <div class="avatar-section">
             <div class="avatar-wrapper" @click="triggerUpload">
               <n-avatar
+                :key="displayAvatar || 'profile-avatar-empty'"
                 round
                 :size="avatarSize"
                 :src="displayAvatar || undefined"
@@ -158,10 +159,14 @@ const formRef = ref<FormInst | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const loading = ref(false)
 const saving = ref(false)
+const avatarPreviewVersion = ref(0)
 
 const avatarSize = computed(() => isMobile.value ? 82 : 100)
 const formGridCols = computed(() => isTouchLayout.value ? 1 : 2)
-const displayAvatar = computed(() => normalizeApiAssetUrl(formData.value.avatar))
+const displayAvatar = computed(() => withAvatarPreviewVersion(
+  normalizeApiAssetUrl(formData.value.avatar),
+  avatarPreviewVersion.value
+))
 
 const formData = ref<Partial<ProfileInfo>>({
   id: 0,
@@ -212,6 +217,14 @@ function getGenderText(gender?: number): string {
   return map[gender || 0] || '未知'
 }
 
+function withAvatarPreviewVersion(url: string, version: number): string {
+  if (!url || !version || url.startsWith('data:') || url.startsWith('blob:')) {
+    return url
+  }
+  const separator = url.includes('?') ? '&' : '?'
+  return `${url}${separator}_avatar=${version}`
+}
+
 function triggerUpload() {
   fileInputRef.value?.click()
 }
@@ -242,6 +255,7 @@ async function handleFileChange(e: Event) {
       return
     }
     formData.value.avatar = normalizeApiAssetUrl(avatarUrl)
+    avatarPreviewVersion.value = Date.now()
     message.success('头像上传成功')
   } catch (error) {
     message.error('头像上传失败')
@@ -271,6 +285,7 @@ async function loadProfile() {
       userType: data.userType || '',
       createTime: data.createTime || ''
     }
+    avatarPreviewVersion.value = 0
     // 保存原始数据用于重置
     originalData.value = { ...formData.value }
   } catch (error) {
@@ -308,6 +323,7 @@ async function handleSave() {
 
 function handleReset() {
   formData.value = { ...originalData.value }
+  avatarPreviewVersion.value = 0
 }
 
 onMounted(() => {

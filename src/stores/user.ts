@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi, type LoginParams, type UserInfo, type MenuInfo } from '@/api/auth'
 import router, { resetRouter } from '@/router'
-import { storageKeys } from '@/config/app'
+import { normalizeApiAssetUrl, storageKeys } from '@/config/app'
 
 export const useUserStore = defineStore('user', () => {
   function readStoredToken() {
@@ -43,7 +43,7 @@ export const useUserStore = defineStore('user', () => {
   // 计算属性
   const isLogin = computed(() => !!token.value)
   const nickname = computed(() => user.value?.nickname || user.value?.username || '')
-  const avatar = computed(() => user.value?.avatar || '')
+  const avatar = computed(() => normalizeApiAssetUrl(user.value?.avatar))
   
   // 登录
   async function login(params: LoginParams) {
