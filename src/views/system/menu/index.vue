@@ -53,33 +53,43 @@
           <article
             v-for="item in flatMenus"
             :key="item.menu.id"
-            class="mobile-card"
+            class="mobile-tree-row"
+            :class="`mobile-tree-row--level-${Math.min(item.level, 4)}`"
             :style="{ '--menu-level': String(Math.min(item.level, 4)) }"
           >
-            <div class="mobile-card__header">
-              <div class="mobile-card__title">
-                <strong>{{ item.menu.name }}</strong>
-                <span>{{ item.menu.path || item.menu.permission || item.menu.component || '-' }}</span>
+            <div class="mobile-tree-row__body">
+              <div class="mobile-tree-row__branch" aria-hidden="true">
+                <span class="mobile-tree-row__dot"></span>
               </div>
-              <n-tag :type="typeMap[item.menu.type].type" size="small">
-                {{ typeMap[item.menu.type].text }}
-              </n-tag>
+              <div class="mobile-tree-row__main">
+                <div class="mobile-tree-row__title-line">
+                  <strong>{{ item.menu.name }}</strong>
+                  <n-tag :type="typeMap[item.menu.type].type" size="small" round>
+                    {{ typeMap[item.menu.type].text }}
+                  </n-tag>
+                  <span v-if="item.menu.children?.length" class="mobile-tree-row__child-count">
+                    {{ item.menu.children.length }} 项
+                  </span>
+                </div>
+                <div class="mobile-tree-row__sub">
+                  {{ item.menu.path || item.menu.permission || item.menu.component || '-' }}
+                </div>
+                <div class="mobile-tree-row__tags">
+                  <span class="mobile-tree-row__level">L{{ item.level + 1 }}</span>
+                  <n-tag v-if="item.menu.type !== 3" :type="item.menu.visible === 1 ? 'success' : 'default'" size="small">
+                    {{ item.menu.visible === 1 ? '显示' : '隐藏' }}
+                  </n-tag>
+                  <n-tag :type="item.menu.status === 1 ? 'success' : 'error'" size="small">
+                    {{ item.menu.status === 1 ? '启用' : '禁用' }}
+                  </n-tag>
+                  <span class="mobile-tree-row__sort">排序 {{ item.menu.sort ?? '-' }}</span>
+                </div>
+              </div>
             </div>
-            <div class="mobile-card__tags">
-              <n-tag v-if="item.menu.type !== 3" :type="item.menu.visible === 1 ? 'success' : 'default'" size="small">
-                {{ item.menu.visible === 1 ? '显示' : '隐藏' }}
-              </n-tag>
-              <n-tag :type="item.menu.status === 1 ? 'success' : 'error'" size="small">
-                {{ item.menu.status === 1 ? '启用' : '禁用' }}
-              </n-tag>
-            </div>
-            <div class="mobile-card__meta"><span>排序</span><em>{{ item.menu.sort ?? '-' }}</em></div>
-            <div class="mobile-card__meta"><span>组件</span><em>{{ item.menu.component || '-' }}</em></div>
-            <div class="mobile-card__meta"><span>权限</span><em>{{ item.menu.permission || '-' }}</em></div>
-            <div class="mobile-card__actions mobile-card__actions--wide">
-              <n-button v-if="item.menu.type !== 3 && hasPermission('sys:menu:add')" size="small" @click="handleAdd(item.menu.id)">新增</n-button>
-              <n-button v-if="hasPermission('sys:menu:edit')" size="small" @click="handleEdit(item.menu)">编辑</n-button>
-              <n-button v-if="hasPermission('sys:menu:delete')" size="small" type="error" @click="handleDelete(item.menu)">删除</n-button>
+            <div class="mobile-tree-row__actions">
+              <n-button v-if="item.menu.type !== 3 && hasPermission('sys:menu:add')" size="small" tertiary type="primary" @click="handleAdd(item.menu.id)">新增</n-button>
+              <n-button v-if="hasPermission('sys:menu:edit')" size="small" tertiary @click="handleEdit(item.menu)">编辑</n-button>
+              <n-button v-if="hasPermission('sys:menu:delete')" size="small" tertiary type="error" @click="handleDelete(item.menu)">删除</n-button>
             </div>
           </article>
           <n-empty v-if="!flatMenus.length" description="暂无菜单" />
@@ -539,57 +549,124 @@ onMounted(() => {
   min-width: 0;
 }
 
-.mobile-card {
+.mobile-tree-row {
+  position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: 10px;
-  padding: 12px;
-  padding-left: calc(12px + var(--menu-level, 0) * 10px);
-  border: 1px solid #e5e7eb;
-  border-left: 3px solid #dbeafe;
-  border-radius: 8px;
+  min-width: 0;
+  min-height: 72px;
+  padding: 10px 10px 10px calc(8px + var(--menu-level, 0) * 16px);
+  border-bottom: 1px solid #eef2f7;
   background: #fff;
 
-  & + & {
-    margin-top: 10px;
+  &::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(14px + var(--menu-level, 0) * 16px);
+    width: 1px;
+    background: #dbe4f0;
+    content: '';
   }
 }
 
-.mobile-card__header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
+.mobile-tree-row:first-child {
+  border-top: 1px solid #eef2f7;
+}
+
+.mobile-tree-row--level-0 {
+  background: #f8fafc;
+
+  &::before {
+    background: #b8c5d8;
+  }
+}
+
+.mobile-tree-row--level-1,
+.mobile-tree-row--level-2,
+.mobile-tree-row--level-3,
+.mobile-tree-row--level-4 {
+  background: linear-gradient(90deg, #fff 0, #fff 72%, #f8fafc 100%);
+}
+
+.mobile-tree-row__body {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
   min-width: 0;
 }
 
-.mobile-card__title {
-  display: grid;
-  flex: 1;
-  min-width: 0;
-  gap: 3px;
+.mobile-tree-row__branch {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-  strong,
-  span {
+.mobile-tree-row__dot {
+  width: 8px;
+  height: 8px;
+  border: 2px solid #94a3b8;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.mobile-tree-row__main {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.mobile-tree-row__title-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+
+  strong {
+    min-width: 0;
+    color: #0f172a;
+    font-size: 14px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-
-  strong {
-    color: #0f172a;
-    font-size: 15px;
-  }
-
-  span {
-    color: #64748b;
-    font-size: 12px;
-  }
 }
 
-.mobile-card__tags,
-.mobile-card__actions {
+.mobile-tree-row__child-count,
+.mobile-tree-row__sort,
+.mobile-tree-row__level {
+  flex: 0 0 auto;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.mobile-tree-row__level {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3b5bdb;
+  line-height: 20px;
+}
+
+.mobile-tree-row__sub {
+  min-width: 0;
+  color: #64748b;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-tree-row__tags,
+.mobile-tree-row__actions {
   display: flex;
+  align-items: center;
   flex-wrap: nowrap;
-  gap: 8px;
+  gap: 6px;
   overflow-x: auto;
   padding-bottom: 2px;
   scrollbar-width: none;
@@ -599,27 +676,15 @@ onMounted(() => {
   }
 }
 
-.mobile-card__meta {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  gap: 8px;
-  color: #64748b;
-  font-size: 12px;
-
-  em {
-    min-width: 0;
-    color: #334155;
-    font-style: normal;
-    overflow-wrap: anywhere;
-  }
+.mobile-tree-row__actions {
+  justify-content: flex-end;
+  max-width: 126px;
 }
 
-.mobile-card__actions :deep(.n-button) {
+.mobile-tree-row__actions :deep(.n-button) {
   flex: 0 0 auto;
-}
-
-.mobile-card__actions--wide :deep(.n-button) {
-  flex: 1 0 64px;
+  min-width: 36px;
+  padding: 0 8px;
 }
 
 @media (max-width: 1024px) {
