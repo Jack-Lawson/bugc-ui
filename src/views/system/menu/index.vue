@@ -208,16 +208,6 @@ function buildMobileMenuOptions(menus: SysMenu[]): MenuTreeOption[] {
   }))
 }
 
-function collectExpandableMenuKeys(menus: SysMenu[], keys: Array<string | number> = []) {
-  menus.forEach(menu => {
-    if (menu.id && menu.children?.length) {
-      keys.push(menu.id)
-      collectExpandableMenuKeys(menu.children, keys)
-    }
-  })
-  return keys
-}
-
 function getMenuSummary(menu: SysMenu) {
   return menu.path || menu.permission || menu.component || '-'
 }
@@ -462,7 +452,7 @@ async function loadData() {
       status: searchForm.status ?? undefined
     })
     tableData.value = res
-    expandedMenuKeys.value = collectExpandableMenuKeys(res)
+    expandedMenuKeys.value = []
   } catch (error) {
     // 错误已在拦截器处理
   } finally {
