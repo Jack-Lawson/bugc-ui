@@ -24,7 +24,7 @@
           </n-card>
         </div>
 
-        <n-grid :cols="2" :x-gap="16" class="stats-charts">
+        <n-grid :cols="isTouchLayout ? 1 : 2" :x-gap="16" :y-gap="12" class="stats-charts">
           <n-gi>
             <n-card title="请求方法分布" size="small" :bordered="false" content-style="background: transparent">
               <div ref="methodChartRef" class="chart-box"></div>
@@ -35,7 +35,7 @@
               <div ref="pathChartRef" class="chart-box"></div>
             </n-card>
           </n-gi>
-          <n-gi :span="2">
+          <n-gi :span="isTouchLayout ? 1 : 2">
             <n-card title="每日请求趋势" size="small" :bordered="false" content-style="background: transparent">
               <div ref="lineChartRef" class="chart-box"></div>
             </n-card>
@@ -73,7 +73,13 @@
         </n-form>
       </div>
 
-      <n-data-table :columns="columns" :data="tableData" :loading="loading" :row-key="(row: ApiAccessLog) => row.id ?? `${row.apiPath || ''}-${row.startTime || ''}`" />
+      <n-data-table
+        :columns="columns"
+        :data="tableData"
+        :loading="loading"
+        :row-key="(row: ApiAccessLog) => row.id ?? `${row.apiPath || ''}-${row.startTime || ''}`"
+        :scroll-x="isTouchLayout ? 920 : undefined"
+      />
 
       <div class="pagination-container">
         <n-pagination
@@ -81,8 +87,8 @@
           v-model:page-size="pagination.pageSize"
           :item-count="pagination.itemCount"
           :page-sizes="[10, 20, 50, 100]"
-          show-size-picker
-          show-quick-jumper
+          :show-size-picker="!isTouchLayout"
+          :show-quick-jumper="!isTouchLayout"
           @update:page="loadPage"
           @update:page-size="loadPage"
         >
@@ -98,6 +104,7 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { NCard, NGrid, NGi, NForm, NFormItem, NInput, NSelect, NDatePicker, NButton, NSpace, NIcon, NDataTable, NPagination, type DataTableColumns } from 'naive-ui'
 import { SearchOutline, RefreshOutline } from '@vicons/ionicons5'
 import { apiAccessApi, type ApiAccessLog, type ApiAccessStatistics } from '@/api/monitor'
+import { useResponsive } from '@/composables/useResponsive'
 
 const stats = reactive<ApiAccessStatistics>({
   totalCount: 0,
@@ -107,6 +114,7 @@ const stats = reactive<ApiAccessStatistics>({
   topPaths: [],
   methodCount: {}
 })
+const { isTouchLayout } = useResponsive()
 
 const methodChartRef = ref<HTMLElement | null>(null)
 const pathChartRef = ref<HTMLElement | null>(null)
@@ -167,25 +175,35 @@ async function loadStatistics() {
 
 function updateCharts() {
   import('echarts').then((echarts) => {
+    const compact = isTouchLayout.value
     if (methodChartRef.value && stats.methodCount) {
       if (!methodChart) methodChart = echarts.init(methodChartRef.value)
       const data = Object.entries(stats.methodCount).map(([name, value]) => ({ name, value }))
       methodChart.setOption({
         tooltip: { trigger: 'item' },
-        series: [{ type: 'pie', radius: '60%', data }]
+        legend: compact ? { bottom: 0, type: 'scroll' } : undefined,
+        series: [{
+          type: 'pie',
+          radius: compact ? ['34%', '58%'] : '60%',
+          center: compact ? ['50%', '42%'] : ['50%', '50%'],
+          label: { formatter: '{b}', overflow: 'truncate' },
+          data
+        }]
       })
+      methodChart.resize()
     }
     if (pathChartRef.value && stats.topPaths?.length) {
       if (!pathChart) pathChart = echarts.init(pathChartRef.value)
-      const xData = stats.topPaths.map((p) => p.apiPath.length > 25 ? p.apiPath.slice(0, 22) + '...' : p.apiPath)
+      const xData = stats.topPaths.map((p) => p.apiPath.length > 18 ? p.apiPath.slice(0, 15) + '...' : p.apiPath)
       const yData = stats.topPaths.map((p) => p.count)
       pathChart.setOption({
         tooltip: { trigger: 'axis' },
-        grid: { left: 80, right: 20, bottom: 60 },
-        xAxis: { type: 'category', data: xData, axisLabel: { rotate: 30 } },
+        grid: compact ? { left: 36, right: 12, top: 24, bottom: 70 } : { left: 80, right: 20, bottom: 60 },
+        xAxis: { type: 'category', data: xData, axisLabel: { rotate: compact ? 45 : 30, fontSize: compact ? 10 : 12 } },
         yAxis: { type: 'value' },
         series: [{ type: 'bar', data: yData, itemStyle: { color: '#18a058' } }]
       })
+      pathChart.resize()
     }
     if (lineChartRef.value && stats.dailyStats) {
       if (!lineChart) lineChart = echarts.init(lineChartRef.value)
@@ -195,17 +213,25 @@ function updateCharts() {
       const failData = keys.map((k) => stats.dailyStats[k]?.fail ?? 0)
       lineChart.setOption({
         tooltip: { trigger: 'axis' },
-        legend: { data: ['总数', '成功', '失败'] },
-        xAxis: { type: 'category', data: keys },
-        yAxis: { type: 'value' },
+        legend: { data: ['总数', '成功', '失败'], bottom: compact ? 0 : undefined },
+        grid: compact ? { left: 36, right: 12, top: 28, bottom: 58 } : undefined,
+        xAxis: { type: 'category', data: keys, axisLabel: { fontSize: compact ? 10 : 12 } },
+        yAxis: { type: 'value', axisLabel: { fontSize: compact ? 10 : 12 } },
         series: [
           { name: '总数', type: 'line', smooth: true, data: totalData, itemStyle: { color: '#18a058' } },
           { name: '成功', type: 'line', smooth: true, data: successData, itemStyle: { color: '#2080f0' } },
           { name: '失败', type: 'line', smooth: true, data: failData, itemStyle: { color: '#d03050' } }
         ]
       })
+      lineChart.resize()
     }
   }).catch(() => {})
+}
+
+function resizeCharts() {
+  methodChart?.resize()
+  pathChart?.resize()
+  lineChart?.resize()
 }
 
 async function loadPage() {
@@ -253,10 +279,12 @@ onMounted(() => {
   loadStatistics()
   loadPage()
   timer = setInterval(loadStatistics, 10000)
+  window.addEventListener('resize', resizeCharts)
 })
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
+  window.removeEventListener('resize', resizeCharts)
   methodChart?.dispose()
   pathChart?.dispose()
   lineChart?.dispose()
@@ -305,6 +333,78 @@ onUnmounted(() => {
     display: flex;
     justify-content: flex-end;
     margin-top: 12px;
+  }
+
+  @media (max-width: 1024px) {
+    :deep(.n-card__content) {
+      padding: 12px;
+    }
+
+    .stats-section {
+      margin-bottom: 16px;
+    }
+
+    .stats-cards {
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .stat-card {
+      min-width: 0;
+
+      :deep(.n-card__content) {
+        padding: 12px 8px;
+      }
+
+      .stat-item {
+        gap: 2px;
+
+        .stat-value {
+          font-size: 18px;
+        }
+
+        .stat-label {
+          font-size: 12px;
+          white-space: nowrap;
+        }
+      }
+    }
+
+    .stats-charts {
+      margin-bottom: 12px;
+    }
+
+    .stats-charts :deep(.n-card-header) {
+      padding: 12px 12px 0;
+    }
+
+    .stats-charts :deep(.n-card__content) {
+      padding: 8px 8px 12px;
+    }
+
+    .chart-box {
+      height: 240px;
+      min-width: 0;
+    }
+
+    .search-form :deep(.n-form),
+    .search-form :deep(.n-form-item),
+    .search-form :deep(.n-input),
+    .search-form :deep(.n-select),
+    .search-form :deep(.n-date-picker) {
+      width: 100% !important;
+    }
+
+    .search-form :deep(.n-space) {
+      width: 100%;
+      display: grid !important;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px !important;
+    }
+
+    .pagination-container {
+      justify-content: center;
+    }
   }
 }
 </style>
