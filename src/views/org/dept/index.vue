@@ -68,12 +68,40 @@
 
         <!-- 用户表格 -->
         <n-data-table
+            v-if="!isTouchLayout"
             :columns="userColumns"
             :data="userData"
             :loading="userLoading"
             :row-key="(row: SysUser) => row.id"
             remote
         />
+        <div v-else class="mobile-user-list">
+          <n-spin :show="userLoading">
+            <article v-for="user in userData" :key="user.id" class="mobile-user-card">
+              <div class="mobile-user-card__header">
+                <div class="mobile-user-card__title">
+                  <strong>{{ user.nickname || user.username }}</strong>
+                  <span>{{ user.username }}</span>
+                </div>
+                <n-tag :type="getUserStatus(user.status).type" size="small">
+                  {{ getUserStatus(user.status).label }}
+                </n-tag>
+              </div>
+              <div class="mobile-user-card__tags">
+                <n-tag :type="getUserType(user.userType).type" size="small">
+                  {{ getUserType(user.userType).label }}
+                </n-tag>
+                <n-tag :type="user.isQuit === 1 ? 'error' : 'success'" size="small">
+                  {{ user.isQuit === 1 ? '已离职' : '在职' }}
+                </n-tag>
+              </div>
+              <div class="mobile-user-card__meta"><span>部门</span><em>{{ user.deptName || '-' }}</em></div>
+              <div class="mobile-user-card__meta"><span>岗位</span><em>{{ user.postNames || '-' }}</em></div>
+              <div class="mobile-user-card__meta"><span>手机</span><em>{{ user.phone || '-' }}</em></div>
+            </article>
+            <n-empty v-if="!userData.length" description="暂无成员" />
+          </n-spin>
+        </div>
 
         <div style="display: flex; justify-content: flex-end; margin-top: 12px">
           <n-pagination
@@ -81,7 +109,7 @@
               v-model:page-size="pagination.pageSize"
               :item-count="pagination.itemCount"
               :page-sizes="pagination.pageSizes"
-              show-size-picker
+              :show-size-picker="!isTouchLayout"
               @update:page="handlePageChange"
               @update:page-size="handlePageSizeChange"
           />
@@ -90,8 +118,8 @@
     </div>
 
     <!-- 部门编辑弹窗 -->
-    <n-modal v-model:show="modalVisible" :title="modalTitle" preset="card" style="width: 550px" :mask-closable="false">
-      <n-form ref="formRef" :model="formData" :rules="rules" label-placement="left" label-width="90">
+    <n-modal v-model:show="modalVisible" :title="modalTitle" preset="card" :style="{ width: isTouchLayout ? 'calc(100vw - 24px)' : '550px' }" :mask-closable="false">
+      <n-form ref="formRef" :model="formData" :rules="rules" :label-placement="isTouchLayout ? 'top' : 'left'" label-width="90">
         <n-form-item label="上级部门" path="parentId">
           <n-tree-select
               v-model:value="formData.parentId"
@@ -155,10 +183,12 @@ import {SearchOutline, AddOutline} from '@vicons/ionicons5'
 import {deptApi, type SysDept} from '@/api/org'
 import {userApi, type SysUser} from '@/api/system'
 import {useUserStore} from '@/stores/user'
+import { useResponsive } from '@/composables/useResponsive'
 
 const message = useMessage()
 const dialog = useDialog()
 const userStore = useUserStore()
+const { isTouchLayout } = useResponsive()
 const hasPermission = (permission: string) => userStore.hasPermission(permission)
 
 // ==================== 部门树逻辑 ====================
@@ -292,6 +322,25 @@ const userColumns: DataTableColumns<SysUser> = [
   },
   {title: '创建时间', key: 'createTime', width: 170}
 ]
+
+function getUserType(userType?: string) {
+  const typeMap: Record<string, { type: 'info' | 'success' | 'warning'; label: string }> = {
+    admin: {type: 'info', label: '后台管理员'},
+    pc: {type: 'success', label: 'PC前台'},
+    app: {type: 'warning', label: 'App/小程序'}
+  }
+  return typeMap[userType || 'admin'] || {type: 'info' as const, label: userType || '未知'}
+}
+
+function getUserStatus(statusValue: number) {
+  const statusMap: Record<number, { type: 'success' | 'error' | 'warning' | 'info'; label: string }> = {
+    0: {type: 'error', label: '禁用'},
+    1: {type: 'success', label: '启用'},
+    2: {type: 'warning', label: '待审核'},
+    3: {type: 'error', label: '审核拒绝'}
+  }
+  return statusMap[statusValue] || {type: 'info' as const, label: '未知'}
+}
 
 async function loadUserData() {
   userLoading.value = true
@@ -440,5 +489,111 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.mobile-user-list {
+  min-width: 0;
+}
+
+.mobile-user-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.mobile-user-card + .mobile-user-card {
+  margin-top: 10px;
+}
+
+.mobile-user-card__header,
+.mobile-user-card__tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mobile-user-card__header {
+  justify-content: space-between;
+}
+
+.mobile-user-card__title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mobile-user-card__title strong,
+.mobile-user-card__title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-user-card__title strong {
+  color: #0f172a;
+  font-size: 15px;
+}
+
+.mobile-user-card__title span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.mobile-user-card__meta {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.mobile-user-card__meta em {
+  min-width: 0;
+  color: #334155;
+  font-style: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1024px) {
+  .dept-layout {
+    display: grid;
+    gap: 12px;
+  }
+
+  .dept-tree-card {
+    width: 100%;
+  }
+
+  .dept-tree-wrapper {
+    max-height: 260px;
+    height: auto;
+  }
+
+  .card-header {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .card-header > span {
+    min-width: 0;
+    font-size: 14px;
+    line-height: 28px;
+  }
+
+  .card-header :deep(.n-space) {
+    flex: 0 0 auto;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    max-width: 58%;
+    scrollbar-width: none;
+  }
+
+  .card-header :deep(.n-space)::-webkit-scrollbar {
+    display: none;
+  }
 }
 </style>
