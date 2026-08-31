@@ -50,65 +50,18 @@
       />
       <div v-else class="mobile-card-list">
         <n-spin :show="loading">
-          <article
-            v-for="item in flatMenus"
-            :key="item.menu.id"
-            class="mobile-tree-row"
-            :class="`mobile-tree-row--level-${Math.min(item.level, 4)}`"
-            :style="{ '--menu-level': String(Math.min(item.level, 4)) }"
-          >
-            <div class="mobile-tree-row__body">
-              <div class="mobile-tree-row__branch" aria-hidden="true">
-                <span class="mobile-tree-row__dot"></span>
-              </div>
-              <div class="mobile-tree-row__main">
-                <div class="mobile-tree-row__title-line">
-                  <n-button
-                    v-if="item.menu.children?.length"
-                    class="mobile-tree-row__toggle"
-                    size="tiny"
-                    quaternary
-                    circle
-                    @click="toggleMobileMenu(item.menu.id!)"
-                  >
-                    <template #icon>
-                      <n-icon>
-                        <ChevronDownOutline v-if="expandedMenuIds.has(item.menu.id!)" />
-                        <ChevronForwardOutline v-else />
-                      </n-icon>
-                    </template>
-                  </n-button>
-                  <span v-else class="mobile-tree-row__toggle-placeholder"></span>
-                  <strong>{{ item.menu.name }}</strong>
-                  <n-tag :type="typeMap[item.menu.type].type" size="small" round>
-                    {{ typeMap[item.menu.type].text }}
-                  </n-tag>
-                  <span v-if="item.menu.children?.length" class="mobile-tree-row__child-count">
-                    {{ item.menu.children.length }} 项
-                  </span>
-                </div>
-                <div class="mobile-tree-row__sub">
-                  {{ item.menu.path || item.menu.permission || item.menu.component || '-' }}
-                </div>
-                <div class="mobile-tree-row__tags">
-                  <span class="mobile-tree-row__level">L{{ item.level + 1 }}</span>
-                  <n-tag v-if="item.menu.type !== 3" :type="item.menu.visible === 1 ? 'success' : 'default'" size="small">
-                    {{ item.menu.visible === 1 ? '显示' : '隐藏' }}
-                  </n-tag>
-                  <n-tag :type="item.menu.status === 1 ? 'success' : 'error'" size="small">
-                    {{ item.menu.status === 1 ? '启用' : '禁用' }}
-                  </n-tag>
-                  <span class="mobile-tree-row__sort">排序 {{ item.menu.sort ?? '-' }}</span>
-                </div>
-              </div>
-            </div>
-            <div class="mobile-tree-row__actions">
-              <n-button v-if="item.menu.type !== 3 && hasPermission('sys:menu:add')" size="small" tertiary type="primary" @click="handleAdd(item.menu.id)">新增</n-button>
-              <n-button v-if="hasPermission('sys:menu:edit')" size="small" tertiary @click="handleEdit(item.menu)">编辑</n-button>
-              <n-button v-if="hasPermission('sys:menu:delete')" size="small" tertiary type="error" @click="handleDelete(item.menu)">删除</n-button>
-            </div>
-          </article>
-          <n-empty v-if="!flatMenus.length" description="暂无菜单" />
+          <n-tree
+            v-if="mobileMenuOptions.length"
+            v-model:expanded-keys="expandedMenuKeys"
+            class="mobile-menu-tree"
+            block-line
+            expand-on-click
+            :data="mobileMenuOptions"
+            :selectable="false"
+            :render-label="renderMobileMenuLabel"
+            :render-suffix="renderMobileMenuActions"
+          />
+          <n-empty v-else description="暂无菜单" />
         </n-spin>
       </div>
     </n-card>
@@ -198,8 +151,8 @@
 
 <script setup lang="ts">
 import { ref, reactive, h, onMounted, computed, type VNode } from 'vue'
-import { NButton, NTag, NSpace, NIcon, useMessage, useDialog, type DataTableColumns, type FormInst, type FormRules, type TreeSelectOption } from 'naive-ui'
-import { SearchOutline, RefreshOutline, AddOutline, ChevronDownOutline, ChevronForwardOutline } from '@vicons/ionicons5'
+import { NButton, NTag, NSpace, NIcon, useMessage, useDialog, type DataTableColumns, type FormInst, type FormRules, type TreeOption, type TreeSelectOption } from 'naive-ui'
+import { SearchOutline, RefreshOutline, AddOutline } from '@vicons/ionicons5'
 import { menuApi, type SysMenu } from '@/api/system'
 import IconSelect from '@/components/IconSelect.vue'
 import { getIconComponent } from '@/utils/icons'
@@ -237,40 +190,71 @@ const typeMap: Record<number, { text: string; type: 'info' | 'success' | 'warnin
 // 表格数据
 const tableData = ref<SysMenu[]>([])
 const loading = ref(false)
-const expandedMenuIds = ref<Set<number>>(new Set())
+const expandedMenuKeys = ref<Array<string | number>>([])
 
-const flatMenus = computed(() => {
-  const rows: Array<{ menu: SysMenu; level: number }> = []
-  function walk(menus: SysMenu[], level: number) {
-    menus.forEach(menu => {
-      rows.push({ menu, level })
-      if (menu.children?.length && menu.id && expandedMenuIds.value.has(menu.id)) {
-        walk(menu.children, level + 1)
-      }
-    })
-  }
-  walk(tableData.value, 0)
-  return rows
-})
-
-function collectExpandableMenuIds(menus: SysMenu[], ids = new Set<number>()) {
-  menus.forEach(menu => {
-    if (menu.id && menu.children?.length) {
-      ids.add(menu.id)
-      collectExpandableMenuIds(menu.children, ids)
-    }
-  })
-  return ids
+type MenuTreeOption = TreeOption & {
+  menu: SysMenu
+  children?: MenuTreeOption[]
 }
 
-function toggleMobileMenu(menuId: number) {
-  const next = new Set(expandedMenuIds.value)
-  if (next.has(menuId)) {
-    next.delete(menuId)
-  } else {
-    next.add(menuId)
+const mobileMenuOptions = computed<MenuTreeOption[]>(() => buildMobileMenuOptions(tableData.value))
+
+function buildMobileMenuOptions(menus: SysMenu[]): MenuTreeOption[] {
+  return menus.map(menu => ({
+    key: menu.id!,
+    label: menu.name,
+    menu,
+    children: menu.children?.length ? buildMobileMenuOptions(menu.children) : undefined
+  }))
+}
+
+function collectExpandableMenuKeys(menus: SysMenu[], keys: Array<string | number> = []) {
+  menus.forEach(menu => {
+    if (menu.id && menu.children?.length) {
+      keys.push(menu.id)
+      collectExpandableMenuKeys(menu.children, keys)
+    }
+  })
+  return keys
+}
+
+function getMenuSummary(menu: SysMenu) {
+  return menu.path || menu.permission || menu.component || '-'
+}
+
+function renderMobileMenuLabel({ option }: { option: TreeOption }) {
+  const menu = (option as MenuTreeOption).menu
+  return h('div', { class: 'mobile-menu-node' }, [
+    h('div', { class: 'mobile-menu-node__main' }, [
+      h('div', { class: 'mobile-menu-node__title' }, [
+        h('strong', null, menu.name),
+        h(NTag, { type: typeMap[menu.type].type, size: 'small', round: true }, { default: () => typeMap[menu.type].text })
+      ]),
+      h('div', { class: 'mobile-menu-node__path' }, getMenuSummary(menu))
+    ]),
+    h('div', { class: 'mobile-menu-node__meta' }, [
+      menu.type !== 3
+        ? h(NTag, { type: menu.visible === 1 ? 'success' : 'default', size: 'small' }, { default: () => (menu.visible === 1 ? '显示' : '隐藏') })
+        : null,
+      h(NTag, { type: menu.status === 1 ? 'success' : 'error', size: 'small' }, { default: () => (menu.status === 1 ? '启用' : '禁用') }),
+      h('span', { class: 'mobile-menu-node__sort' }, `排序 ${menu.sort ?? '-'}`)
+    ])
+  ])
+}
+
+function renderMobileMenuActions({ option }: { option: TreeOption }) {
+  const menu = (option as MenuTreeOption).menu
+  const buttons: VNode[] = []
+  if (menu.type !== 3 && hasPermission('sys:menu:add')) {
+    buttons.push(h(NButton, { size: 'tiny', tertiary: true, type: 'primary', onClick: (event: MouseEvent) => { event.stopPropagation(); handleAdd(menu.id) } }, { default: () => '增' }))
   }
-  expandedMenuIds.value = next
+  if (hasPermission('sys:menu:edit')) {
+    buttons.push(h(NButton, { size: 'tiny', tertiary: true, onClick: (event: MouseEvent) => { event.stopPropagation(); handleEdit(menu) } }, { default: () => '改' }))
+  }
+  if (hasPermission('sys:menu:delete')) {
+    buttons.push(h(NButton, { size: 'tiny', tertiary: true, type: 'error', onClick: (event: MouseEvent) => { event.stopPropagation(); handleDelete(menu) } }, { default: () => '删' }))
+  }
+  return h('div', { class: 'mobile-menu-actions' }, buttons)
 }
 
 // 菜单选项（用于选择上级）
@@ -478,7 +462,7 @@ async function loadData() {
       status: searchForm.status ?? undefined
     })
     tableData.value = res
-    expandedMenuIds.value = collectExpandableMenuIds(res)
+    expandedMenuKeys.value = collectExpandableMenuKeys(res)
   } catch (error) {
     // 错误已在拦截器处理
   } finally {
@@ -587,121 +571,69 @@ onMounted(() => {
   min-width: 0;
 }
 
-.mobile-tree-row {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  min-height: 72px;
-  padding: 10px 10px 10px calc(8px + var(--menu-level, 0) * 16px);
-  border-bottom: 1px solid #eef2f7;
-  background: #fff;
-
-  &::before {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: calc(14px + var(--menu-level, 0) * 16px);
-    width: 1px;
-    background: #dbe4f0;
-    content: '';
-  }
-}
-
-.mobile-tree-row:first-child {
-  border-top: 1px solid #eef2f7;
-}
-
-.mobile-tree-row--level-0 {
-  background: #f8fafc;
-
-  &::before {
-    background: #b8c5d8;
-  }
-}
-
-.mobile-tree-row--level-1,
-.mobile-tree-row--level-2,
-.mobile-tree-row--level-3,
-.mobile-tree-row--level-4 {
-  background: linear-gradient(90deg, #fff 0, #fff 72%, #f8fafc 100%);
-}
-
-.mobile-tree-row__body {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
-  align-items: center;
-  min-width: 0;
-}
-
-.mobile-tree-row__branch {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mobile-tree-row__dot {
-  width: 8px;
-  height: 8px;
-  border: 2px solid #94a3b8;
-  border-radius: 50%;
+.mobile-menu-tree {
+  border: 1px solid #eef2f7;
+  border-radius: 8px;
+  overflow: hidden;
   background: #fff;
 }
 
-.mobile-tree-row__main {
+.mobile-menu-tree :deep(.n-tree-node) {
+  min-height: 64px;
+  padding: 6px 6px 6px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.mobile-menu-tree :deep(.n-tree-node-switcher) {
+  align-self: center;
+}
+
+.mobile-menu-tree :deep(.n-tree-node-content) {
+  min-width: 0;
+}
+
+.mobile-menu-tree :deep(.n-tree-node-content__text) {
+  min-width: 0;
+  flex: 1;
+}
+
+.mobile-menu-tree :deep(.n-tree-node-content__suffix) {
+  margin-left: 6px;
+}
+
+.mobile-menu-node {
   display: grid;
   gap: 5px;
   min-width: 0;
 }
 
-.mobile-tree-row__title-line {
+.mobile-menu-node__main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.mobile-menu-node__title,
+.mobile-menu-node__meta,
+.mobile-menu-actions {
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 6px;
   min-width: 0;
-
-  strong {
-    min-width: 0;
-    color: #0f172a;
-    font-size: 14px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 }
 
-.mobile-tree-row__toggle,
-.mobile-tree-row__toggle-placeholder {
-  flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
+.mobile-menu-node__title strong {
+  min-width: 0;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.mobile-tree-row__toggle :deep(.n-button__icon) {
-  color: #475569;
-}
-
-.mobile-tree-row__child-count,
-.mobile-tree-row__sort,
-.mobile-tree-row__level {
-  flex: 0 0 auto;
-  color: #64748b;
-  font-size: 12px;
-}
-
-.mobile-tree-row__level {
-  padding: 0 6px;
-  border-radius: 999px;
-  background: #eef2ff;
-  color: #3b5bdb;
-  line-height: 20px;
-}
-
-.mobile-tree-row__sub {
+.mobile-menu-node__path {
   min-width: 0;
   color: #64748b;
   font-size: 12px;
@@ -710,14 +642,16 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-.mobile-tree-row__tags,
-.mobile-tree-row__actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: 6px;
+.mobile-menu-node__sort {
+  flex: 0 0 auto;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.mobile-menu-actions {
+  justify-content: flex-end;
   overflow-x: auto;
-  padding-bottom: 2px;
+  max-width: 112px;
   scrollbar-width: none;
 
   &::-webkit-scrollbar {
@@ -725,15 +659,10 @@ onMounted(() => {
   }
 }
 
-.mobile-tree-row__actions {
-  justify-content: flex-end;
-  max-width: 126px;
-}
-
-.mobile-tree-row__actions :deep(.n-button) {
+.mobile-menu-actions :deep(.n-button) {
   flex: 0 0 auto;
-  min-width: 36px;
-  padding: 0 8px;
+  min-width: 30px;
+  padding: 0 7px;
 }
 
 @media (max-width: 1024px) {
