@@ -1,4 +1,20 @@
+import { Capacitor } from '@capacitor/core'
+
 const devBackendUrl = import.meta.env.VITE_DEV_BACKEND_URL || 'http://localhost:8080'
+const isNativeApp = Capacitor.isNativePlatform()
+
+function nativeRequiredUrl(value: string | undefined, name: string, protocol: 'https' | 'wss') {
+  if (!isNativeApp) return value || ''
+  if (!value || !value.toLowerCase().startsWith(`${protocol}://`)) {
+    throw new Error(`${name} must be an absolute ${protocol.toUpperCase()} URL in a native build`)
+  }
+  return value.replace(/\/+$/, '')
+}
+
+const configuredApiBaseUrl = nativeRequiredUrl(import.meta.env.VITE_API_BASE_URL, 'VITE_API_BASE_URL', 'https')
+const configuredWsBaseUrl = isNativeApp
+  ? nativeRequiredUrl(import.meta.env.VITE_WS_BASE_URL, 'VITE_WS_BASE_URL', 'wss')
+  : (import.meta.env.VITE_WS_BASE_URL || '')
 
 function parsePositiveNumber(value: string | undefined, fallback: number) {
   const parsed = Number(value)
@@ -10,7 +26,7 @@ function toWebSocketUrl(url: string) {
 }
 
 export const apiConfig = {
-  baseUrl: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseUrl: configuredApiBaseUrl || '/api',
   timeout: parsePositiveNumber(import.meta.env.VITE_API_TIMEOUT, 30000),
   cryptoConfigPath: '/crypto/config'
 }
@@ -18,7 +34,7 @@ export const apiConfig = {
 export const websocketConfig = {
   messagePath: '/ws/message',
   sshPath: '/ws/ssh',
-  baseUrl: import.meta.env.VITE_WS_BASE_URL || '',
+  baseUrl: configuredWsBaseUrl,
   devSshBaseUrl: import.meta.env.VITE_DEV_SSH_WS_BASE_URL || toWebSocketUrl(devBackendUrl)
 }
 

@@ -6,12 +6,20 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:android": "vite build --mode android && cap sync android",
+    "android:open": "cap open android",
+    "android:run": "npm run build:android && cap run android",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "check": "npm run build",
     "test:mobile": "playwright test"
   },
   "dependencies": {
+    "@capacitor/android": "6.2.1",
+    "@capacitor/app": "6.0.3",
+    "@capacitor/core": "6.2.1",
+    "@capacitor/splash-screen": "6.0.4",
+    "@capacitor/status-bar": "6.0.3",
     "@vicons/ionicons5": "^0.12.0",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
@@ -27,6 +35,7 @@
     "vue-router": "^4.2.5"
   },
   "devDependencies": {
+    "@capacitor/cli": "6.2.1",
     "@playwright/test": "^1.62.1",
     "@types/node": "^20.11.5",
     "@vitejs/plugin-vue": "^5.0.3",

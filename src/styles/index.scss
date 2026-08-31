@@ -12,6 +12,36 @@ html, body, #app {
   transition: background-color 0.3s, color 0.3s;
 }
 
+html.capacitor-native {
+  --app-safe-area-top: env(safe-area-inset-top, 0px);
+  --app-safe-area-right: env(safe-area-inset-right, 0px);
+  --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --app-safe-area-left: env(safe-area-inset-left, 0px);
+
+  body {
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+
+  #app {
+    padding-right: var(--app-safe-area-right);
+    padding-bottom: var(--app-safe-area-bottom);
+    padding-left: var(--app-safe-area-left);
+  }
+
+  input,
+  textarea,
+  [contenteditable='true'] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  .n-message-container.n-message-container--top {
+    top: calc(var(--app-safe-area-top) + 64px) !important;
+  }
+}
+
 // 暗色主题全局样式
 body.dark-theme {
   background-color: #101014;

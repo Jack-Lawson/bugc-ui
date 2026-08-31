@@ -4,6 +4,16 @@ import { resolve } from 'path'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  const appApiBaseUrl = env.VITE_API_BASE_URL || process.env.VITE_API_BASE_URL
+  const appWsBaseUrl = env.VITE_WS_BASE_URL || process.env.VITE_WS_BASE_URL
+  if (mode === 'android') {
+    if (!appApiBaseUrl?.startsWith('https://')) {
+      throw new Error('Android builds require an HTTPS VITE_API_BASE_URL')
+    }
+    if (!appWsBaseUrl?.startsWith('wss://')) {
+      throw new Error('Android builds require a WSS VITE_WS_BASE_URL')
+    }
+  }
   const devBackendUrl = env.VITE_DEV_BACKEND_URL || 'http://localhost:8080'
   const devBackendWsUrl = devBackendUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
   const configuredPort = Number(env.VITE_DEV_SERVER_PORT)

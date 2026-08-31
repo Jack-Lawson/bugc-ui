@@ -7,6 +7,7 @@ import router from './router'
 import './styles/index.scss'
 import { fetchCryptoConfig } from './utils/request'
 import { useSiteStore } from './stores/site'
+import { initializeNativeApp } from './utils/native'
 
 const app = createApp(App)
 
@@ -34,6 +35,7 @@ async function bootstrap() {
   }
 
   app.mount('#app')
+  await initializeNativeApp(router)
 }
 
 bootstrap()

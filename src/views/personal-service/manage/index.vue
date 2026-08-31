@@ -649,12 +649,22 @@ onMounted(loadServices)
 }
 
 .service-mobile-card__actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 
   :deep(.n-button) {
-    width: 100%;
+    flex: 1 0 68px;
+    min-width: 68px;
+    max-width: 96px;
   }
 }
 
@@ -687,8 +697,19 @@ onMounted(loadServices)
     margin-bottom: 10px;
   }
 
+  .table-toolbar {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
   .table-toolbar :deep(.n-button) {
-    width: 100%;
+    flex: 0 0 auto;
   }
 
   .pagination-container {
