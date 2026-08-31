@@ -41,12 +41,50 @@
 
       <!-- 表格 -->
       <n-data-table
+        v-if="!isTouchLayout"
         :columns="columns"
         :data="tableData"
         :loading="loading"
         :row-key="(row: SysMenu) => row.id"
         default-expand-all
       />
+      <div v-else class="mobile-card-list">
+        <n-spin :show="loading">
+          <article
+            v-for="item in flatMenus"
+            :key="item.menu.id"
+            class="mobile-card"
+            :style="{ '--menu-level': String(Math.min(item.level, 4)) }"
+          >
+            <div class="mobile-card__header">
+              <div class="mobile-card__title">
+                <strong>{{ item.menu.name }}</strong>
+                <span>{{ item.menu.path || item.menu.permission || item.menu.component || '-' }}</span>
+              </div>
+              <n-tag :type="typeMap[item.menu.type].type" size="small">
+                {{ typeMap[item.menu.type].text }}
+              </n-tag>
+            </div>
+            <div class="mobile-card__tags">
+              <n-tag v-if="item.menu.type !== 3" :type="item.menu.visible === 1 ? 'success' : 'default'" size="small">
+                {{ item.menu.visible === 1 ? '显示' : '隐藏' }}
+              </n-tag>
+              <n-tag :type="item.menu.status === 1 ? 'success' : 'error'" size="small">
+                {{ item.menu.status === 1 ? '启用' : '禁用' }}
+              </n-tag>
+            </div>
+            <div class="mobile-card__meta"><span>排序</span><em>{{ item.menu.sort ?? '-' }}</em></div>
+            <div class="mobile-card__meta"><span>组件</span><em>{{ item.menu.component || '-' }}</em></div>
+            <div class="mobile-card__meta"><span>权限</span><em>{{ item.menu.permission || '-' }}</em></div>
+            <div class="mobile-card__actions mobile-card__actions--wide">
+              <n-button v-if="item.menu.type !== 3 && hasPermission('sys:menu:add')" size="small" @click="handleAdd(item.menu.id)">新增</n-button>
+              <n-button v-if="hasPermission('sys:menu:edit')" size="small" @click="handleEdit(item.menu)">编辑</n-button>
+              <n-button v-if="hasPermission('sys:menu:delete')" size="small" type="error" @click="handleDelete(item.menu)">删除</n-button>
+            </div>
+          </article>
+          <n-empty v-if="!flatMenus.length" description="暂无菜单" />
+        </n-spin>
+      </div>
     </n-card>
 
     <!-- 新增/编辑弹窗 -->
@@ -54,14 +92,14 @@
       v-model:show="modalVisible"
       :title="modalTitle"
       preset="card"
-      style="width: 650px"
+      :style="{ width: isTouchLayout ? 'calc(100vw - 24px)' : '650px' }"
       :mask-closable="false"
     >
       <n-form
         ref="formRef"
         :model="formData"
         :rules="rules"
-        label-placement="left"
+        :label-placement="isTouchLayout ? 'top' : 'left'"
         label-width="80"
         class="modal-form"
       >
@@ -141,10 +179,12 @@ import IconSelect from '@/components/IconSelect.vue'
 import { getIconComponent } from '@/utils/icons'
 import { useUserStore } from '@/stores/user'
 import { addDynamicRoutes, resetRouter } from '@/router'
+import { useResponsive } from '@/composables/useResponsive'
 
 const message = useMessage()
 const dialog = useDialog()
 const userStore = useUserStore()
+const { isTouchLayout } = useResponsive()
 
 // 权限检查
 const hasPermission = (permission: string) => userStore.hasPermission(permission)
@@ -171,6 +211,20 @@ const typeMap: Record<number, { text: string; type: 'info' | 'success' | 'warnin
 // 表格数据
 const tableData = ref<SysMenu[]>([])
 const loading = ref(false)
+
+const flatMenus = computed(() => {
+  const rows: Array<{ menu: SysMenu; level: number }> = []
+  function walk(menus: SysMenu[], level: number) {
+    menus.forEach(menu => {
+      rows.push({ menu, level })
+      if (menu.children?.length) {
+        walk(menu.children, level + 1)
+      }
+    })
+  }
+  walk(tableData.value, 0)
+  return rows
+})
 
 // 菜单选项（用于选择上级）
 const menuOptions = computed<TreeSelectOption[]>(() => {
@@ -476,5 +530,109 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+.search-form,
+.table-toolbar {
+  margin-bottom: 16px;
+}
+
+.mobile-card-list {
+  min-width: 0;
+}
+
+.mobile-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  padding-left: calc(12px + var(--menu-level, 0) * 10px);
+  border: 1px solid #e5e7eb;
+  border-left: 3px solid #dbeafe;
+  border-radius: 8px;
+  background: #fff;
+
+  & + & {
+    margin-top: 10px;
+  }
+}
+
+.mobile-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mobile-card__title {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 3px;
+
+  strong,
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    color: #0f172a;
+    font-size: 15px;
+  }
+
+  span {
+    color: #64748b;
+    font-size: 12px;
+  }
+}
+
+.mobile-card__tags,
+.mobile-card__actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.mobile-card__meta {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
+  color: #64748b;
+  font-size: 12px;
+
+  em {
+    min-width: 0;
+    color: #334155;
+    font-style: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+.mobile-card__actions :deep(.n-button) {
+  flex: 0 0 auto;
+}
+
+.mobile-card__actions--wide :deep(.n-button) {
+  flex: 1 0 64px;
+}
+
+@media (max-width: 1024px) {
+  .page-layout :deep(.n-card__content) {
+    padding: 12px;
+  }
+
+  .search-form :deep(.n-form),
+  .search-form :deep(.n-form-item),
+  .search-form :deep(.n-input),
+  .search-form :deep(.n-select) {
+    width: 100%;
+  }
+}
 
 </style>

@@ -38,21 +38,45 @@
 
       <!-- 表格 -->
       <n-data-table
+        v-if="!isTouchLayout"
         :columns="columns"
         :data="tableData"
         :loading="loading"
         :row-key="(row: SysDictType) => row.id"
         remote
       />
+      <div v-else class="mobile-card-list">
+        <n-spin :show="loading">
+          <article v-for="dict in tableData" :key="dict.id" class="mobile-card">
+            <div class="mobile-card__header">
+              <div class="mobile-card__title">
+                <strong>{{ dict.dictName }}</strong>
+                <span>{{ dict.dictType }}</span>
+              </div>
+              <n-tag :type="dict.status === 1 ? 'success' : 'error'" size="small">
+                {{ dict.status === 1 ? '启用' : '禁用' }}
+              </n-tag>
+            </div>
+            <div class="mobile-card__meta"><span>备注</span><em>{{ dict.remark || '-' }}</em></div>
+            <div class="mobile-card__meta"><span>创建</span><em>{{ dict.createTime || '-' }}</em></div>
+            <div class="mobile-card__actions mobile-card__actions--wide">
+              <n-button size="small" @click="handleViewData(dict)">字典数据</n-button>
+              <n-button v-if="hasPermission('sys:dict:edit')" size="small" @click="handleEdit(dict)">编辑</n-button>
+              <n-button v-if="hasPermission('sys:dict:delete')" size="small" type="error" @click="handleDelete(dict)">删除</n-button>
+            </div>
+          </article>
+          <n-empty v-if="!tableData.length" description="暂无字典" />
+        </n-spin>
+      </div>
 
-      <div class="pagination-container" style="display: flex; justify-content: flex-end; margin-top: 12px">
+      <div class="pagination-container">
         <n-pagination
           v-model:page="pagination.page"
           v-model:page-size="pagination.pageSize"
           :item-count="pagination.itemCount"
           :page-sizes="[10, 20, 50, 100]"
-          show-size-picker
-          show-quick-jumper
+          :show-size-picker="!isTouchLayout"
+          :show-quick-jumper="!isTouchLayout"
           @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         >
@@ -64,8 +88,8 @@
     </n-card>
 
     <!-- 字典类型弹窗 -->
-    <n-modal v-model:show="modalVisible" :title="modalTitle" preset="card" style="width: 500px" :mask-closable="false">
-      <n-form ref="formRef" :model="formData" :rules="rules" label-placement="left" label-width="80">
+    <n-modal v-model:show="modalVisible" :title="modalTitle" preset="card" :style="{ width: isTouchLayout ? 'calc(100vw - 24px)' : '500px' }" :mask-closable="false">
+      <n-form ref="formRef" :model="formData" :rules="rules" :label-placement="isTouchLayout ? 'top' : 'left'" label-width="80">
         <n-form-item label="字典名称" path="dictName">
           <n-input v-model:value="formData.dictName" placeholder="请输入字典名称" />
         </n-form-item>
@@ -91,19 +115,42 @@
     </n-modal>
 
     <!-- 字典数据弹窗 -->
-    <n-modal v-model:show="dataModalVisible" title="字典数据" preset="card" style="width: 900px" :mask-closable="false">
+    <n-modal v-model:show="dataModalVisible" title="字典数据" preset="card" :style="{ width: isTouchLayout ? 'calc(100vw - 24px)' : '900px' }" :mask-closable="false">
       <div class="table-toolbar">
         <n-button v-if="hasPermission('sys:dict:add')" type="primary" size="small" @click="handleAddData">
           <template #icon><n-icon><AddOutline /></n-icon></template>
           新增数据
         </n-button>
       </div>
-      <n-data-table :columns="dataColumns" :data="dictDataList" :loading="dataLoading" size="small" />
+      <n-data-table v-if="!isTouchLayout" :columns="dataColumns" :data="dictDataList" :loading="dataLoading" size="small" />
+      <div v-else class="mobile-card-list">
+        <n-spin :show="dataLoading">
+          <article v-for="item in dictDataList" :key="item.id" class="mobile-card mobile-card--compact">
+            <div class="mobile-card__header">
+              <div class="mobile-card__title">
+                <strong>{{ item.dictLabel }}</strong>
+                <span>{{ item.dictValue }}</span>
+              </div>
+              <n-tag :type="item.status === 1 ? 'success' : 'error'" size="small">
+                {{ item.status === 1 ? '启用' : '禁用' }}
+              </n-tag>
+            </div>
+            <div class="mobile-card__meta"><span>排序</span><em>{{ item.sort ?? '-' }}</em></div>
+            <div class="mobile-card__meta"><span>样式</span><em>{{ item.listClass || '-' }}</em></div>
+            <div class="mobile-card__meta"><span>备注</span><em>{{ item.remark || '-' }}</em></div>
+            <div class="mobile-card__actions">
+              <n-button v-if="hasPermission('sys:dict:edit')" size="small" @click="handleEditData(item)">编辑</n-button>
+              <n-button v-if="hasPermission('sys:dict:delete')" size="small" type="error" @click="handleDeleteData(item)">删除</n-button>
+            </div>
+          </article>
+          <n-empty v-if="!dictDataList.length" description="暂无字典数据" />
+        </n-spin>
+      </div>
     </n-modal>
 
     <!-- 字典数据编辑弹窗 -->
-    <n-modal v-model:show="dataFormVisible" :title="dataFormTitle" preset="card" style="width: 500px" :mask-closable="false">
-      <n-form ref="dataFormRef" :model="dataFormData" :rules="dataRules" label-placement="left" label-width="80">
+    <n-modal v-model:show="dataFormVisible" :title="dataFormTitle" preset="card" :style="{ width: isTouchLayout ? 'calc(100vw - 24px)' : '500px' }" :mask-closable="false">
+      <n-form ref="dataFormRef" :model="dataFormData" :rules="dataRules" :label-placement="isTouchLayout ? 'top' : 'left'" label-width="80">
         <n-form-item label="字典标签" path="dictLabel">
           <n-input v-model:value="dataFormData.dictLabel" placeholder="请输入字典标签" />
         </n-form-item>
@@ -142,10 +189,12 @@ import { NButton, NTag, NSpace, NPagination, useMessage, useDialog, type DataTab
 import { SearchOutline, RefreshOutline, AddOutline } from '@vicons/ionicons5'
 import { dictTypeApi, dictDataApi, type SysDictType, type SysDictData } from '@/api/org'
 import { useUserStore } from '@/stores/user'
+import { useResponsive } from '@/composables/useResponsive'
 
 const message = useMessage()
 const dialog = useDialog()
 const userStore = useUserStore()
+const { isTouchLayout } = useResponsive()
 
 // 权限检查
 const hasPermission = (permission: string) => userStore.hasPermission(permission)
@@ -333,5 +382,128 @@ onMounted(() => loadData())
 <style lang="scss" scoped>
 .page-layout{
   height: calc(100vh - 160px);
+}
+
+.search-form,
+.table-toolbar {
+  margin-bottom: 16px;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.mobile-card-list {
+  min-width: 0;
+}
+
+.mobile-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+
+  & + & {
+    margin-top: 10px;
+  }
+}
+
+.mobile-card--compact {
+  padding: 10px;
+}
+
+.mobile-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mobile-card__title {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 3px;
+
+  strong,
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    color: #0f172a;
+    font-size: 15px;
+  }
+
+  span {
+    color: #64748b;
+    font-size: 12px;
+  }
+}
+
+.mobile-card__meta {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
+  color: #64748b;
+  font-size: 12px;
+
+  em {
+    min-width: 0;
+    color: #334155;
+    font-style: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+.mobile-card__actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  :deep(.n-button) {
+    flex: 0 0 auto;
+  }
+}
+
+.mobile-card__actions--wide :deep(.n-button) {
+  flex: 1 0 72px;
+}
+
+@media (max-width: 1024px) {
+  .page-layout {
+    height: auto;
+    min-height: calc(100vh - 120px);
+  }
+
+  .page-layout :deep(.n-card__content) {
+    padding: 12px;
+  }
+
+  .search-form :deep(.n-form),
+  .search-form :deep(.n-form-item),
+  .search-form :deep(.n-input),
+  .search-form :deep(.n-select) {
+    width: 100%;
+  }
+
+  .pagination-container {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
 }
 </style>

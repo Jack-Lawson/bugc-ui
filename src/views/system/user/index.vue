@@ -69,6 +69,7 @@
 
       <!-- 表格 -->
       <n-data-table
+        v-if="!isTouchLayout"
         :columns="columns"
         :data="tableData"
         :loading="loading"
@@ -76,15 +77,60 @@
         v-model:checked-row-keys="checkedRowKeys"
         remote
       />
+      <div v-else class="mobile-card-list">
+        <n-spin :show="loading">
+          <article v-for="user in tableData" :key="user.id" class="mobile-card">
+            <div class="mobile-card__header">
+              <div class="mobile-card__title">
+                <strong>{{ user.username }}</strong>
+                <span>{{ user.nickname || '-' }}</span>
+              </div>
+              <n-tag :type="getUserStatus(user.status).type" size="small">
+                {{ getUserStatus(user.status).label }}
+              </n-tag>
+            </div>
+            <div class="mobile-card__tags">
+              <n-tag :type="getUserType(user.userType).type" size="small">
+                {{ getUserType(user.userType).label }}
+              </n-tag>
+              <n-tag :type="user.isQuit === 1 ? 'error' : 'success'" size="small">
+                {{ user.isQuit === 1 ? '已离职' : '在职' }}
+              </n-tag>
+            </div>
+            <div class="mobile-card__meta"><span>部门</span><em>{{ user.deptName || '-' }}</em></div>
+            <div class="mobile-card__meta"><span>岗位</span><em>{{ user.postNames || '-' }}</em></div>
+            <div class="mobile-card__meta"><span>手机</span><em>{{ user.phone || '-' }}</em></div>
+            <div class="mobile-card__meta"><span>创建</span><em>{{ user.createTime || '-' }}</em></div>
+            <div class="mobile-card__actions">
+              <n-button v-if="user.status === 2 && hasPermission('sys:user:edit')" size="small" type="success" @click="handleApprove(user)">通过</n-button>
+              <n-button v-if="user.status === 2 && hasPermission('sys:user:edit')" size="small" type="error" @click="handleReject(user)">拒绝</n-button>
+              <n-button v-if="hasPermission('sys:user:edit')" size="small" @click="handleEdit(user)">编辑</n-button>
+              <n-button v-if="hasPermission('sys:user:delete')" size="small" type="error" @click="handleDelete(user)">删除</n-button>
+              <n-dropdown
+                v-if="hasPermission('sys:user:edit')"
+                trigger="click"
+                :options="getMoreOptions(user)"
+                @select="(key) => handleMoreSelect(key, user)"
+              >
+                <n-button size="small">
+                  更多
+                  <template #icon><n-icon><ChevronDownOutline /></n-icon></template>
+                </n-button>
+              </n-dropdown>
+            </div>
+          </article>
+          <n-empty v-if="!tableData.length" description="暂无用户" />
+        </n-spin>
+      </div>
 
-      <div class="pagination-container" style="display: flex; justify-content: flex-end; margin-top: 12px">
+      <div class="pagination-container">
         <n-pagination
           v-model:page="pagination.page"
           v-model:page-size="pagination.pageSize"
           :item-count="pagination.itemCount"
           :page-sizes="[10, 20, 50, 100]"
-          show-size-picker
-          show-quick-jumper
+          :show-size-picker="!isTouchLayout"
+          :show-quick-jumper="!isTouchLayout"
           @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         >
@@ -100,18 +146,18 @@
       v-model:show="modalVisible"
       :title="modalTitle"
       preset="card"
-      style="width: 600px"
+      :style="{ width: isTouchLayout ? 'calc(100vw - 24px)' : '600px' }"
       :mask-closable="false"
     >
       <n-form
         ref="formRef"
         :model="formData"
         :rules="rules"
-        label-placement="left"
+        :label-placement="isTouchLayout ? 'top' : 'left'"
         label-width="80"
         class="modal-form"
       >
-        <n-grid :cols="2" :x-gap="16">
+        <n-grid :cols="isTouchLayout ? 1 : 2" :x-gap="16">
           <n-gi>
             <n-form-item label="用户名" path="username">
               <n-input v-model:value="formData.username" placeholder="请输入用户名" :disabled="!!formData.id" />
@@ -211,7 +257,7 @@
       v-model:show="importModalVisible"
       title="导入用户"
       preset="card"
-      style="width: 500px"
+      :style="{ width: isTouchLayout ? 'calc(100vw - 24px)' : '500px' }"
       :mask-closable="false"
     >
       <n-space vertical>
@@ -267,11 +313,13 @@ import { SearchOutline, RefreshOutline, AddOutline, ChevronDownOutline, CloudUpl
 import { userApi, roleApi, postApi, type SysUser, type SysRole } from '@/api/system'
 import { deptApi, type SysDept } from '@/api/org'
 import { useUserStore } from '@/stores/user'
+import { useResponsive } from '@/composables/useResponsive'
 
 const message = useMessage()
 const dialog = useDialog()
 const userStore = useUserStore()
 const route = useRoute()
+const { isTouchLayout } = useResponsive()
 
 // 权限检查
 const hasPermission = (permission: string) => userStore.hasPermission(permission)
@@ -322,6 +370,42 @@ const userTypeOptions = [
   { label: 'App/小程序用户', value: 'app' }
 ]
 
+function getUserType(userType?: string) {
+  const typeMap: Record<string, { type: 'info' | 'success' | 'warning'; label: string }> = {
+    admin: { type: 'info', label: '后台管理员' },
+    pc: { type: 'success', label: 'PC前台' },
+    app: { type: 'warning', label: 'App/小程序' }
+  }
+  return typeMap[userType || 'admin'] || { type: 'info', label: userType || '未知' }
+}
+
+function getUserStatus(status: number) {
+  const statusMap: Record<number, { type: 'success' | 'error' | 'warning' | 'info'; label: string }> = {
+    0: { type: 'error', label: '禁用' },
+    1: { type: 'success', label: '启用' },
+    2: { type: 'warning', label: '待审核' },
+    3: { type: 'error', label: '审核拒绝' }
+  }
+  return statusMap[status] || { type: 'info', label: '未知' }
+}
+
+function getMoreOptions(row: SysUser) {
+  const options = []
+  if (row.status !== 2) {
+    options.push({ label: '重置密码', key: 'resetPassword' })
+  }
+  options.push({ label: row.isQuit === 1 ? '取消离职' : '离职', key: 'toggleQuit' })
+  return options
+}
+
+function handleMoreSelect(key: string, row: SysUser) {
+  if (key === 'toggleQuit') {
+    handleToggleQuit(row)
+  } else if (key === 'resetPassword') {
+    handleResetPassword(row)
+  }
+}
+
 const columns: DataTableColumns<SysUser> = [
   { type: 'selection' },
   { title: 'ID', key: 'id', width: 60 },
@@ -338,12 +422,7 @@ const columns: DataTableColumns<SysUser> = [
     key: 'userType',
     width: 110,
     render(row) {
-      const typeMap: Record<string, { type: 'info' | 'success' | 'warning'; label: string }> = {
-        admin: { type: 'info', label: '后台管理员' },
-        pc: { type: 'success', label: 'PC前台' },
-        app: { type: 'warning', label: 'App/小程序' }
-      }
-      const t = typeMap[row.userType || 'admin'] || { type: 'info', label: row.userType || '未知' }
+      const t = getUserType(row.userType)
       return h(NTag, { type: t.type, size: 'small' }, { default: () => t.label })
     }
   },
@@ -364,13 +443,7 @@ const columns: DataTableColumns<SysUser> = [
     key: 'status',
     width: 80,
     render(row) {
-      const statusMap: Record<number, { type: 'success' | 'error' | 'warning' | 'info'; label: string }> = {
-        0: { type: 'error', label: '禁用' },
-        1: { type: 'success', label: '启用' },
-        2: { type: 'warning', label: '待审核' },
-        3: { type: 'error', label: '审核拒绝' }
-      }
-      const status = statusMap[row.status] || { type: 'info', label: '未知' }
+      const status = getUserStatus(row.status)
       return h(NTag, { type: status.type, size: 'small' }, { default: () => status.label })
     }
   },
@@ -404,34 +477,13 @@ const columns: DataTableColumns<SysUser> = [
 
       // 更多操作
       if (hasPermission('sys:user:edit')) {
-        const moreOptions = []
-
-        // 重置密码移入更多
-        if (row.status !== 2) {
-          moreOptions.push({
-            label: '重置密码',
-            key: 'resetPassword'
-          })
-        }
-
-        moreOptions.push({
-          label: row.isQuit === 1 ? '取消离职' : '离职',
-          key: 'toggleQuit'
-        })
-
         buttons.push(
           h(
             NDropdown,
             {
               trigger: 'click',
-              options: moreOptions,
-              onSelect: (key) => {
-                if (key === 'toggleQuit') {
-                  handleToggleQuit(row)
-                } else if (key === 'resetPassword') {
-                  handleResetPassword(row)
-                }
-              }
+              options: getMoreOptions(row),
+              onSelect: (key) => handleMoreSelect(String(key), row)
             },
             {
               default: () =>
@@ -495,7 +547,6 @@ async function loadData() {
     })
     tableData.value = res.list
     pagination.itemCount = Number(res.total)
-    console.log('Pagination updated:', pagination.itemCount)
   } catch (error) {
     // 错误已在拦截器处理
   } finally {
@@ -803,6 +854,127 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+.search-form,
+.table-toolbar {
+  margin-bottom: 16px;
+}
+
+.table-toolbar :deep(.n-space) {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.mobile-card-list {
+  min-width: 0;
+}
+
+.mobile-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+
+  & + & {
+    margin-top: 10px;
+  }
+}
+
+.mobile-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mobile-card__title {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 3px;
+
+  strong,
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    color: #0f172a;
+    font-size: 15px;
+  }
+
+  span {
+    color: #64748b;
+    font-size: 12px;
+  }
+}
+
+.mobile-card__tags,
+.mobile-card__actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.mobile-card__meta {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
+  color: #64748b;
+  font-size: 12px;
+
+  em {
+    min-width: 0;
+    color: #334155;
+    font-style: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+.mobile-card__actions :deep(.n-button) {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1024px) {
+  .user-list-card :deep(.n-card__content) {
+    padding: 12px;
+  }
+
+  .search-form :deep(.n-form),
+  .search-form :deep(.n-form-item),
+  .search-form :deep(.n-input),
+  .search-form :deep(.n-select) {
+    width: 100%;
+  }
+
+  .pagination-container {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+}
 
 </style>

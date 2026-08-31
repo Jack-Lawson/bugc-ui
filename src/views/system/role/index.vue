@@ -41,6 +41,7 @@
 
       <!-- 表格 -->
       <n-data-table
+        v-if="!isTouchLayout"
         :columns="columns"
         :data="tableData"
         :loading="loading"
@@ -49,6 +50,43 @@
         @update:page="handlePageChange"
         @update:page-size="handlePageSizeChange"
       />
+      <div v-else class="mobile-card-list">
+        <n-spin :show="loading">
+          <article v-for="role in tableData" :key="role.id" class="mobile-card">
+            <div class="mobile-card__header">
+              <div class="mobile-card__title">
+                <strong>{{ role.name }}</strong>
+                <span>{{ role.code }}</span>
+              </div>
+              <n-tag :type="role.status === 1 ? 'success' : 'error'" size="small">
+                {{ role.status === 1 ? '启用' : '禁用' }}
+              </n-tag>
+            </div>
+            <div class="mobile-card__meta"><span>排序</span><em>{{ role.sort ?? '-' }}</em></div>
+            <div class="mobile-card__meta"><span>备注</span><em>{{ role.remark || '-' }}</em></div>
+            <div class="mobile-card__meta"><span>创建</span><em>{{ role.createTime || '-' }}</em></div>
+            <div class="mobile-card__actions">
+              <n-button v-if="hasPermission('sys:role:edit')" size="small" @click="handleEdit(role)">编辑</n-button>
+              <n-button v-if="hasPermission('sys:role:delete')" size="small" type="error" @click="handleDelete(role)">删除</n-button>
+            </div>
+          </article>
+          <n-empty v-if="!tableData.length" description="暂无角色" />
+        </n-spin>
+        <div class="pagination-container">
+          <n-pagination
+            v-model:page="pagination.page"
+            v-model:page-size="pagination.pageSize"
+            :item-count="pagination.itemCount"
+            :page-sizes="[10, 20, 50]"
+            :show-size-picker="false"
+            :show-quick-jumper="false"
+            @update:page="handlePageChange"
+            @update:page-size="handlePageSizeChange"
+          >
+            <template #prefix>共 {{ pagination.itemCount }} 条</template>
+          </n-pagination>
+        </div>
+      </div>
     </n-card>
 
     <!-- 新增/编辑弹窗 -->
@@ -56,18 +94,18 @@
       v-model:show="modalVisible"
       :title="modalTitle"
       preset="card"
-      style="width: 700px"
+      :style="{ width: isTouchLayout ? 'calc(100vw - 24px)' : '700px' }"
       :mask-closable="false"
     >
       <n-form
         ref="formRef"
         :model="formData"
         :rules="rules"
-        label-placement="left"
+        :label-placement="isTouchLayout ? 'top' : 'left'"
         label-width="80"
         class="modal-form"
       >
-        <n-grid :cols="2" :x-gap="24">
+        <n-grid :cols="isTouchLayout ? 1 : 2" :x-gap="24">
           <n-gi>
             <n-form-item label="角色名称" path="name">
               <n-input v-model:value="formData.name" placeholder="请输入角色名称" />
@@ -149,10 +187,12 @@ import { SearchOutline, RefreshOutline, AddOutline } from '@vicons/ionicons5'
 import { roleApi, menuApi, deptApi, type SysRole, type SysMenu, type SysDept } from '@/api/system'
 import { useUserStore } from '@/stores/user'
 import { addDynamicRoutes, resetRouter } from '@/router'
+import { useResponsive } from '@/composables/useResponsive'
 
 const message = useMessage()
 const dialog = useDialog()
 const userStore = useUserStore()
+const { isTouchLayout } = useResponsive()
 
 // 权限检查
 const hasPermission = (permission: string) => userStore.hasPermission(permission)
@@ -480,6 +520,117 @@ onMounted(() => {
 
 .page-layout{
   height: calc(100vh - 160px);
+}
+
+.search-form,
+.table-toolbar {
+  margin-bottom: 16px;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 12px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.mobile-card-list {
+  min-width: 0;
+}
+
+.mobile-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+
+  & + & {
+    margin-top: 10px;
+  }
+}
+
+.mobile-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mobile-card__title {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 3px;
+
+  strong,
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    color: #0f172a;
+    font-size: 15px;
+  }
+
+  span {
+    color: #64748b;
+    font-size: 12px;
+  }
+}
+
+.mobile-card__meta {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
+  color: #64748b;
+  font-size: 12px;
+
+  em {
+    min-width: 0;
+    color: #334155;
+    font-style: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+.mobile-card__actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  :deep(.n-button) {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 1024px) {
+  .page-layout {
+    height: auto;
+    min-height: calc(100vh - 120px);
+  }
+
+  .page-layout :deep(.n-card__content) {
+    padding: 12px;
+  }
+
+  .search-form :deep(.n-form),
+  .search-form :deep(.n-form-item),
+  .search-form :deep(.n-input),
+  .search-form :deep(.n-select) {
+    width: 100%;
+  }
 }
 
 </style>

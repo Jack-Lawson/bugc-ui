@@ -8,7 +8,31 @@
         </n-button>
       </div>
 
-      <n-data-table :columns="columns" :data="tableData" :loading="loading" :row-key="(row: OnlineUser) => row.tokenId" />
+      <n-data-table v-if="!isTouchLayout" :columns="columns" :data="tableData" :loading="loading" :row-key="(row: OnlineUser) => row.tokenId" />
+      <div v-else class="mobile-card-list">
+        <n-spin :show="loading">
+          <article v-for="user in tableData" :key="user.tokenId" class="mobile-card">
+            <div class="mobile-card__header">
+              <div class="mobile-card__title">
+                <strong>{{ user.loginName }}</strong>
+                <span>{{ user.browser || '-' }} / {{ user.os || '-' }}</span>
+              </div>
+              <n-tag :type="user.status === 1 ? 'success' : 'default'" size="small">
+                {{ user.status === 1 ? '在线' : '离线' }}
+              </n-tag>
+            </div>
+            <div class="mobile-card__meta"><span>会话</span><em>{{ user.tokenId }}</em></div>
+            <div class="mobile-card__meta"><span>主机</span><em>{{ user.ipaddr || '-' }}</em></div>
+            <div class="mobile-card__meta"><span>地点</span><em>{{ user.loginLocation || '-' }}</em></div>
+            <div class="mobile-card__meta"><span>登录</span><em>{{ user.loginTime || '-' }}</em></div>
+            <div class="mobile-card__meta"><span>访问</span><em>{{ user.lastAccessTime || '-' }}</em></div>
+            <div v-if="hasPermission('monitor:online:forceLogout')" class="mobile-card__actions">
+              <n-button size="small" type="error" @click="handleForceLogout(user)">强退</n-button>
+            </div>
+          </article>
+          <n-empty v-if="!tableData.length" description="暂无在线用户" />
+        </n-spin>
+      </div>
     </n-card>
   </div>
 </template>
@@ -19,10 +43,12 @@ import { NButton, NTag, useMessage, useDialog, type DataTableColumns } from 'nai
 import { RefreshOutline } from '@vicons/ionicons5'
 import { onlineApi, type OnlineUser } from '@/api/monitor'
 import { useUserStore } from '@/stores/user'
+import { useResponsive } from '@/composables/useResponsive'
 
 const message = useMessage()
 const dialog = useDialog()
 const userStore = useUserStore()
+const { isTouchLayout } = useResponsive()
 const hasPermission = (permission: string) => userStore.hasPermission(permission)
 
 const tableData = ref<OnlineUser[]>([])
@@ -76,5 +102,96 @@ onMounted(() => loadData())
 <style lang="scss" scoped>
 .page-layout{
   height: calc(100vh - 160px);
+}
+
+.table-toolbar {
+  margin-bottom: 16px;
+}
+
+.mobile-card-list {
+  min-width: 0;
+}
+
+.mobile-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+
+  & + & {
+    margin-top: 10px;
+  }
+}
+
+.mobile-card__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mobile-card__title {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 3px;
+
+  strong,
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    color: #0f172a;
+    font-size: 15px;
+  }
+
+  span {
+    color: #64748b;
+    font-size: 12px;
+  }
+}
+
+.mobile-card__meta {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
+  color: #64748b;
+  font-size: 12px;
+
+  em {
+    min-width: 0;
+    color: #334155;
+    font-style: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+.mobile-card__actions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  :deep(.n-button) {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 1024px) {
+  .page-layout {
+    height: auto;
+    min-height: calc(100vh - 120px);
+  }
 }
 </style>
