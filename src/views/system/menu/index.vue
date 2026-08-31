@@ -63,6 +63,22 @@
               </div>
               <div class="mobile-tree-row__main">
                 <div class="mobile-tree-row__title-line">
+                  <n-button
+                    v-if="item.menu.children?.length"
+                    class="mobile-tree-row__toggle"
+                    size="tiny"
+                    quaternary
+                    circle
+                    @click="toggleMobileMenu(item.menu.id!)"
+                  >
+                    <template #icon>
+                      <n-icon>
+                        <ChevronDownOutline v-if="expandedMenuIds.has(item.menu.id!)" />
+                        <ChevronForwardOutline v-else />
+                      </n-icon>
+                    </template>
+                  </n-button>
+                  <span v-else class="mobile-tree-row__toggle-placeholder"></span>
                   <strong>{{ item.menu.name }}</strong>
                   <n-tag :type="typeMap[item.menu.type].type" size="small" round>
                     {{ typeMap[item.menu.type].text }}
@@ -183,7 +199,7 @@
 <script setup lang="ts">
 import { ref, reactive, h, onMounted, computed, type VNode } from 'vue'
 import { NButton, NTag, NSpace, NIcon, useMessage, useDialog, type DataTableColumns, type FormInst, type FormRules, type TreeSelectOption } from 'naive-ui'
-import { SearchOutline, RefreshOutline, AddOutline } from '@vicons/ionicons5'
+import { SearchOutline, RefreshOutline, AddOutline, ChevronDownOutline, ChevronForwardOutline } from '@vicons/ionicons5'
 import { menuApi, type SysMenu } from '@/api/system'
 import IconSelect from '@/components/IconSelect.vue'
 import { getIconComponent } from '@/utils/icons'
@@ -221,13 +237,14 @@ const typeMap: Record<number, { text: string; type: 'info' | 'success' | 'warnin
 // 表格数据
 const tableData = ref<SysMenu[]>([])
 const loading = ref(false)
+const expandedMenuIds = ref<Set<number>>(new Set())
 
 const flatMenus = computed(() => {
   const rows: Array<{ menu: SysMenu; level: number }> = []
   function walk(menus: SysMenu[], level: number) {
     menus.forEach(menu => {
       rows.push({ menu, level })
-      if (menu.children?.length) {
+      if (menu.children?.length && menu.id && expandedMenuIds.value.has(menu.id)) {
         walk(menu.children, level + 1)
       }
     })
@@ -235,6 +252,26 @@ const flatMenus = computed(() => {
   walk(tableData.value, 0)
   return rows
 })
+
+function collectExpandableMenuIds(menus: SysMenu[], ids = new Set<number>()) {
+  menus.forEach(menu => {
+    if (menu.id && menu.children?.length) {
+      ids.add(menu.id)
+      collectExpandableMenuIds(menu.children, ids)
+    }
+  })
+  return ids
+}
+
+function toggleMobileMenu(menuId: number) {
+  const next = new Set(expandedMenuIds.value)
+  if (next.has(menuId)) {
+    next.delete(menuId)
+  } else {
+    next.add(menuId)
+  }
+  expandedMenuIds.value = next
+}
 
 // 菜单选项（用于选择上级）
 const menuOptions = computed<TreeSelectOption[]>(() => {
@@ -441,6 +478,7 @@ async function loadData() {
       status: searchForm.status ?? undefined
     })
     tableData.value = res
+    expandedMenuIds.value = collectExpandableMenuIds(res)
   } catch (error) {
     // 错误已在拦截器处理
   } finally {
@@ -634,6 +672,17 @@ onMounted(() => {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+.mobile-tree-row__toggle,
+.mobile-tree-row__toggle-placeholder {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+}
+
+.mobile-tree-row__toggle :deep(.n-button__icon) {
+  color: #475569;
 }
 
 .mobile-tree-row__child-count,
