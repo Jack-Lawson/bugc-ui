@@ -38,7 +38,7 @@
         :title="shouldFullyHideSider ? '隐藏菜单' : undefined"
         @click="shouldFullyHideSider && toggleSider()"
       >
-        <img v-if="showSiteLogo" :src="siteLogo" class="logo-img" alt="Logo" @error="handleLogoError" />
+        <img v-if="showSiteLogo" :src="siteLogoUrl" class="logo-img" alt="Logo" @error="handleLogoError" />
         <div v-else class="logo-icon" :style="{ background: themeStore.headerUsePrimaryColor ? '#fff' : themeStore.primaryColor, color: themeStore.headerUsePrimaryColor ? themeStore.primaryColor : '#fff' }">{{ siteName.charAt(0) }}</div>
         <transition name="fade">
           <span v-if="!collapsed" class="logo-text">{{ siteName }}</span>
@@ -82,7 +82,7 @@
       <n-layout-header bordered class="layout-header" :class="[`theme-${layoutConfig.theme}`, { 'header-primary': themeStore.headerUsePrimaryColor }]" :style="headerStyle">
         <!-- 顶部菜单模式下的Logo -->
         <div v-if="layoutConfig.siderPosition === 'top'" class="header-logo">
-          <img v-if="showSiteLogo" :src="siteLogo" class="logo-img" alt="Logo" @error="handleLogoError" />
+          <img v-if="showSiteLogo" :src="siteLogoUrl" class="logo-img" alt="Logo" @error="handleLogoError" />
           <div v-else class="logo-icon" :style="{ background: themeStore.headerUsePrimaryColor ? '#fff' : themeStore.primaryColor, color: themeStore.headerUsePrimaryColor ? themeStore.primaryColor : '#fff' }">{{ siteName.charAt(0) }}</div>
           <span class="logo-text">{{ siteName }}</span>
         </div>
@@ -111,7 +111,7 @@
               </n-icon>
             </template>
             <template v-else>
-              <img v-if="showSiteLogo" :src="siteLogo" class="header-brand-img" alt="Logo" @error="handleLogoError" />
+              <img v-if="showSiteLogo" :src="siteLogoUrl" class="header-brand-img" alt="Logo" @error="handleLogoError" />
               <span v-else class="header-brand-icon">{{ siteName.charAt(0) }}</span>
               <span class="header-brand-text">{{ siteName }}</span>
             </template>
@@ -438,7 +438,7 @@ import TabBar from '@/components/TabBar.vue'
 import AppAvatar from '@/components/AppAvatar.vue'
 import { noticeApi, chatApi, type SysNotice, type ChatMessage } from '@/api/message'
 import { iconMap as externalIconMap } from '@/utils/icons'
-import { siteDefaults } from '@/config/app'
+import { normalizeApiAssetUrl, siteDefaults } from '@/config/app'
 import { useResponsive } from '@/composables/useResponsive'
 
 const route = useRoute()
@@ -453,8 +453,9 @@ const themeStore = useThemeStore()
 // 站点配置
 const siteName = computed(() => siteStore.siteName || siteDefaults.name)
 const siteLogo = computed(() => siteStore.siteLogo)
+const siteLogoUrl = computed(() => normalizeApiAssetUrl(siteLogo.value))
 const logoLoadFailed = ref(false)
-const showSiteLogo = computed(() => !!siteLogo.value && !logoLoadFailed.value)
+const showSiteLogo = computed(() => !!siteLogoUrl.value && !logoLoadFailed.value)
 
 // 注册全局message
 window.$message = message
