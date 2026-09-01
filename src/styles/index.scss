@@ -17,6 +17,8 @@ html.capacitor-native {
   --app-safe-area-right: env(safe-area-inset-right, 0px);
   --app-safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --app-safe-area-left: env(safe-area-inset-left, 0px);
+  --app-header-height: 60px;
+  --app-mobile-header-height: 56px;
 
   body {
     overscroll-behavior-y: none;
@@ -39,6 +41,28 @@ html.capacitor-native {
 
   .n-message-container.n-message-container--top {
     top: calc(var(--app-safe-area-top) + 64px) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  html.capacitor-native {
+    .layout-header {
+      height: calc(var(--app-mobile-header-height) + var(--app-safe-area-top)) !important;
+      padding-top: var(--app-safe-area-top) !important;
+      align-items: center;
+    }
+
+    .layout-sider {
+      padding-top: var(--app-safe-area-top);
+    }
+
+    .layout-content {
+      padding-bottom: var(--app-safe-area-bottom);
+    }
+
+    .tab-bar {
+      top: calc(var(--app-mobile-header-height) + var(--app-safe-area-top)) !important;
+    }
   }
 }
 
