@@ -38,7 +38,7 @@
         :title="shouldFullyHideSider ? '隐藏菜单' : undefined"
         @click="shouldFullyHideSider && toggleSider()"
       >
-        <img v-if="siteLogo" :src="siteLogo" class="logo-img" alt="Logo" />
+        <img v-if="showSiteLogo" :src="siteLogo" class="logo-img" alt="Logo" @error="handleLogoError" />
         <div v-else class="logo-icon" :style="{ background: themeStore.headerUsePrimaryColor ? '#fff' : themeStore.primaryColor, color: themeStore.headerUsePrimaryColor ? themeStore.primaryColor : '#fff' }">{{ siteName.charAt(0) }}</div>
         <transition name="fade">
           <span v-if="!collapsed" class="logo-text">{{ siteName }}</span>
@@ -82,7 +82,7 @@
       <n-layout-header bordered class="layout-header" :class="[`theme-${layoutConfig.theme}`, { 'header-primary': themeStore.headerUsePrimaryColor }]" :style="headerStyle">
         <!-- 顶部菜单模式下的Logo -->
         <div v-if="layoutConfig.siderPosition === 'top'" class="header-logo">
-          <img v-if="siteLogo" :src="siteLogo" class="logo-img" alt="Logo" />
+          <img v-if="showSiteLogo" :src="siteLogo" class="logo-img" alt="Logo" @error="handleLogoError" />
           <div v-else class="logo-icon" :style="{ background: themeStore.headerUsePrimaryColor ? '#fff' : themeStore.primaryColor, color: themeStore.headerUsePrimaryColor ? themeStore.primaryColor : '#fff' }">{{ siteName.charAt(0) }}</div>
           <span class="logo-text">{{ siteName }}</span>
         </div>
@@ -111,7 +111,7 @@
               </n-icon>
             </template>
             <template v-else>
-              <img v-if="siteLogo" :src="siteLogo" class="header-brand-img" alt="Logo" />
+              <img v-if="showSiteLogo" :src="siteLogo" class="header-brand-img" alt="Logo" @error="handleLogoError" />
               <span v-else class="header-brand-icon">{{ siteName.charAt(0) }}</span>
               <span class="header-brand-text">{{ siteName }}</span>
             </template>
@@ -453,9 +453,19 @@ const themeStore = useThemeStore()
 // 站点配置
 const siteName = computed(() => siteStore.siteName || siteDefaults.name)
 const siteLogo = computed(() => siteStore.siteLogo)
+const logoLoadFailed = ref(false)
+const showSiteLogo = computed(() => !!siteLogo.value && !logoLoadFailed.value)
 
 // 注册全局message
 window.$message = message
+
+watch(siteLogo, () => {
+  logoLoadFailed.value = false
+})
+
+function handleLogoError() {
+  logoLoadFailed.value = true
+}
 
 const collapsed = ref(false)
 const { isMobile: isMobileSiderViewport } = useResponsive()
