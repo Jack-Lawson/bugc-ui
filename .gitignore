@@ -83,3 +83,9 @@ android/app/src/main/res/xml/config.xml
 
 # Note: production assets are built into this frontend repo's dist/ directory and then
 # synchronized to the system Nginx static directory during deployment.
+
+# iOS build output
+dist-ios/
+
+# Deployment configuration with credentials
+.deploy.env

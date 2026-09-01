@@ -17,6 +17,9 @@
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "check": "npm run build",
+    "deploy": "npm run build && ./scripts/deploy.sh prod",
+    "deploy:dev": "npm run build && ./scripts/deploy.sh dev",
+    "deploy:staging": "npm run build && ./scripts/deploy.sh staging",
     "test:mobile": "playwright test"
   },
   "dependencies": {
