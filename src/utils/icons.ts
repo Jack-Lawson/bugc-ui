@@ -258,6 +258,7 @@ export const iconMap: Record<string, Component> = {
   AnalyticsOutline: markRaw(AnalyticsOutline),
   SpeedometerOutline: markRaw(SpeedometerOutline),
   ServerOutline: markRaw(ServerOutline),
+  CloudServerOutline: markRaw(ServerOutline),
   HardwareChipOutline: markRaw(HardwareChipOutline),
   DesktopOutline: markRaw(DesktopOutline),
   LaptopOutline: markRaw(LaptopOutline),
