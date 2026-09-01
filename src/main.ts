@@ -21,21 +21,20 @@ app.use(naive)
 async function bootstrap() {
   const siteStore = useSiteStore()
 
-  // 首屏品牌依赖后端站点配置，先加载再挂载，避免默认 Logo 闪现。
-  await Promise.allSettled([
-    fetchCryptoConfig(),
-    siteStore.loadConfig()
-  ])
-
-  // 根据配置动态启用前端禁止调试
-  if (siteStore.disableDevtool) {
-    import('disable-devtool').then((DisableDevtool) => {
-      DisableDevtool.default()
-    })
-  }
-
   app.mount('#app')
   await initializeNativeApp(router)
+
+  // 站点配置和加密配置异步加载，避免移动端网络异常时卡在原生启动屏。
+  Promise.allSettled([
+    fetchCryptoConfig(),
+    siteStore.loadConfig()
+  ]).then(() => {
+    if (siteStore.disableDevtool) {
+      import('disable-devtool').then((DisableDevtool) => {
+        DisableDevtool.default()
+      })
+    }
+  })
 }
 
 bootstrap()

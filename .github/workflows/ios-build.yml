@@ -1,16 +1,6 @@
-name: Build iOS IPA
+name: Build signed iOS IPA
 
 on:
-  push:
-    branches: [ main, develop ]
-    paths:
-      - 'src/**'
-      - 'package.json'
-      - 'vite.config.ts'
-      - '.env.ios*'
-      - '.github/workflows/ios-build.yml'
-  pull_request:
-    branches: [ main, develop ]
   workflow_dispatch:
     inputs:
       build_type:

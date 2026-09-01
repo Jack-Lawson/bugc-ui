@@ -12,17 +12,19 @@ export async function initializeNativeApp(router: Router) {
     import('@capacitor/status-bar')
   ])
 
-  await StatusBar.setOverlaysWebView({ overlay: false })
-  await StatusBar.setStyle({ style: Style.Light })
+  try {
+    await StatusBar.setOverlaysWebView({ overlay: false })
+    await StatusBar.setStyle({ style: Style.Light })
 
-  App.addListener('backButton', () => {
-    const rootRoutes = ['/', '/dashboard', '/login']
-    if (!rootRoutes.includes(router.currentRoute.value.path) && window.history.length > 1) {
-      router.back()
-      return
-    }
-    App.minimizeApp()
-  })
-
-  await SplashScreen.hide()
+    App.addListener('backButton', () => {
+      const rootRoutes = ['/', '/dashboard', '/login']
+      if (!rootRoutes.includes(router.currentRoute.value.path) && window.history.length > 1) {
+        router.back()
+        return
+      }
+      App.minimizeApp()
+    })
+  } finally {
+    await SplashScreen.hide()
+  }
 }
