@@ -57,12 +57,12 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const appApiBaseUrl = env.VITE_API_BASE_URL || process.env.VITE_API_BASE_URL
   const appWsBaseUrl = env.VITE_WS_BASE_URL || process.env.VITE_WS_BASE_URL
-  if (mode === 'android') {
+  if (mode === 'android' || mode === 'ios') {
     if (!appApiBaseUrl?.startsWith('https://')) {
-      throw new Error('Android builds require an HTTPS VITE_API_BASE_URL')
+      throw new Error(`${mode} builds require an HTTPS VITE_API_BASE_URL`)
     }
     if (!appWsBaseUrl?.startsWith('wss://')) {
-      throw new Error('Android builds require a WSS VITE_WS_BASE_URL')
+      throw new Error(`${mode} builds require a WSS VITE_WS_BASE_URL`)
     }
   }
   const devBackendUrl = env.VITE_DEV_BACKEND_URL || 'http://localhost:8080'
@@ -71,7 +71,7 @@ export default defineConfig(({ mode }) => {
   const devServerPort = Number.isFinite(configuredPort) && configuredPort > 0 ? configuredPort : 3000
   const devApiTarget = env.VITE_DEV_API_TARGET || devBackendUrl
   const devWsTarget = env.VITE_DEV_WS_TARGET || devBackendWsUrl
-  const buildOutDir = env.VITE_BUILD_OUT_DIR || 'dist'
+  const buildOutDir = mode === 'ios' ? 'dist-ios' : (mode === 'android' ? 'dist-android' : (env.VITE_BUILD_OUT_DIR || 'dist'))
 
   return {
     plugins: [vue(), createHistoryRouteEntrypoints(resolve(__dirname, buildOutDir))],

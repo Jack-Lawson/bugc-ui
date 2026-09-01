@@ -1,0 +1,140 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'vite.config.ts'
+      - '.env.ios*'
+      - '.github/workflows/ios-build.yml'
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'app-store'
+        type: choice
+        options:
+          - app-store
+          - ad-hoc
+          - enterprise
+          - development
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Setup iOS build environment
+        run: |
+          # Install CocoaPods if not present
+          sudo gem install cocoapods
+          
+      - name: Load environment variables
+        env:
+          IOS_ENV: ${{ secrets.IOS_ENV }}
+        run: |
+          if [ -n "$IOS_ENV" ]; then
+            echo "$IOS_ENV" > .env.ios
+          else
+            # Use example if no secret is provided
+            cp .env.ios.example .env.ios
+          fi
+          
+      - name: Build web assets for iOS
+        run: npm run build:ios
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_WS_BASE_URL: ${{ secrets.VITE_WS_BASE_URL }}
+          VITE_DEV_BACKEND_URL: ${{ secrets.VITE_DEV_BACKEND_URL }}
+          
+      - name: Sync Capacitor
+        run: npx cap sync ios
+        
+      - name: Setup iOS signing
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          if [ -n "${{ secrets.IOS_PROVISIONING_PROFILE }}" ]; then
+            echo "${{ secrets.IOS_PROVISIONING_PROFILE }}" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
+          fi
+          
+      - name: Install iOS certificates
+        run: |
+          if [ -n "${{ secrets.IOS_CERTIFICATE }}" ]; then
+            echo "${{ secrets.IOS_CERTIFICATE }}" | base64 --decode > certificate.p12
+            security create-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain || true
+            security default-keychain -s build.keychain
+            security unlock-keychain -p "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+            security import certificate.p12 -k build.keychain -P "${{ secrets.CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool,apple:,codesign -s -k "${{ secrets.KEYCHAIN_PASSWORD }}" build.keychain
+            rm -f certificate.p12
+          fi
+          
+      - name: Build iOS App
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -derivedDataPath build \
+            -arch arm64 \
+            build
+            
+      - name: Create iOS App Archive
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -derivedDataPath build \
+            -archivePath build/App.xcarchive \
+            archive
+            
+      - name: Export IPA
+        run: |
+          cd ios/App
+          # Update exportOptions.plist with actual values if needed
+          export EXPORT_PLIST="${PWD}/../../exportOptions.plist"
+          
+          xcodebuild -exportArchive \
+            -archivePath build/App.xcarchive \
+            -exportOptionsPlist "$EXPORT_PLIST" \
+            -exportPath build/ipa
+            
+      - name: Upload IPA to GitHub Releases
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ios/App/build/ipa/*.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Upload IPA as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: iOS-IPA
+          path: ios/App/build/ipa/
+          retention-days: 30
+          
+      - name: Cleanup signing credentials
+        if: always()
+        run: |
+          security delete-keychain build.keychain || true
+          rm -f ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision

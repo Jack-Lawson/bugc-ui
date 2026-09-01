@@ -11,6 +11,10 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
     backgroundColor: '#f3f4f6'
   },
+  ios: {
+    scheme: 'App',
+    orientation: 'portrait'
+  },
   plugins: {
     SplashScreen: {
       launchAutoHide: false,

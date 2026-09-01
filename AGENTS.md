@@ -55,14 +55,25 @@
 - 本地验证通过后，默认创建 Git 提交；提交信息使用中文，遵循本文件的 Conventional Commits 格式。
 - 提交后默认发布到 ECS；发布过程和回复中不得暴露真实主机、地址、端口、私钥、账号或部署目录，只报告脱敏进度与结果。
 - 涉及 Android 端的前端变更，发布后默认重新构建 Android 包，并通过 adb 覆盖安装到已连接手机。
+- 涉及 iOS 端的前端变更，发布后默认重新构建 iOS IPA，通过 GitHub Actions macOS 构建机自动化打包。
 - 若用户当次明确要求只改本地、只分析、不提交、不发布或不安装，以用户当次要求为准。
+
+## iOS 应用打包
+
+- iOS 打包通过 GitHub Actions 在 macOS 构建机上自动进行；本地开发时使用 `npm run ios:run` 在模拟器测试。
+- iOS 构建配置在 `vite.config.ts` 中，使用 `--mode ios` 标志，输出目录为 `dist-ios/`。
+- iOS 环境变量模板为 `.env.ios.example`，需复制为 `.env.ios` 后填入真实 API 地址。
+- iOS 构建要求 API 和 WebSocket 必须使用 HTTPS/WSS 协议（非 HTTP/WS）；GitHub Actions Secrets 中必须配置 `VITE_API_BASE_URL` 和 `VITE_WS_BASE_URL`。
+- iOS 代码签名配置在 `.github/workflows/ios-build.yml` 中；需在 GitHub 仓库 Secrets 中配置 `IOS_CERTIFICATE`、`IOS_PROVISIONING_PROFILE`、`CERTIFICATE_PASSWORD`、`KEYCHAIN_PASSWORD`、`TEAM_ID`。
+- 本地构建 IPA 使用 `./scripts/build-ios-ipa.sh release` 脚本；环境初始化使用 `./scripts/setup-ios.sh`。
+- IPA 构建产物位置：`ios/App/build/ipa/BugC.ipa`；GitHub Actions 会自动上传到 Artifacts，保留 30 天。
+- 推送 tag（格式：`v*`）时，GitHub Actions 会自动将 IPA 发布到 Release；TestFlight 上传及 App Store 发布需手动在 App Store Connect 上传。
 
 ## 前后端协作
 
 - 修改请求字段、接口路径、认证流程、WebSocket、上传下载或 API 客户端时，必须检查后端对应 Controller、DTO、校验、权限和返回体。
 - 不得在业务代码中硬编码后端地址、真实域名、端口或凭据。
 - 跨端变更完成后，分别运行前端构建检查和后端相关检查。
-## 构建输出与部署
 
 - 本项目 Vite 构建默认写入当前前端仓库 `dist/`，不写入后端 `static` 目录。
 - 前端发布到 ECS 时，只同步 `dist/` 内容到系统 Nginx 的前端静态目录。
