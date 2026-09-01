@@ -47,8 +47,8 @@
                 </n-form-item>
                 <n-form-item label="站点Logo">
                   <div class="logo-upload">
-                    <div class="logo-preview" v-if="configs.system.siteLogo">
-                      <img :src="configs.system.siteLogo" alt="Logo" />
+                    <div class="logo-preview" v-if="showLogoPreview">
+                      <img :src="logoPreviewUrl" alt="Logo" @error="handleLogoPreviewError" />
                       <n-button size="small" quaternary type="error" class="logo-delete" @click="configs.system.siteLogo = ''">
                         <template #icon><n-icon><CloseOutline /></n-icon></template>
                       </n-button>
@@ -1056,7 +1056,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed, h } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed, h, watch } from 'vue'
 import { useMessage, type UploadCustomRequestOptions } from 'naive-ui'
 import {
   ImageOutline,
@@ -1072,7 +1072,7 @@ import { fileApi } from '@/api/system'
 import { wechatApi } from '@/api/wechat'
 import { useSiteStore } from '@/stores/site'
 import { useThemeStore, themeColors } from '@/stores/theme'
-import { createDefaultSystemConfigs, siteDefaults } from '@/config/app'
+import { createDefaultSystemConfigs, normalizeApiAssetUrl, siteDefaults } from '@/config/app'
 
 const message = useMessage()
 const siteStore = useSiteStore()
@@ -1093,6 +1093,13 @@ const canScrollConfigTabsRight = computed(() => tabsScrollValue.value < tabsScro
 
 // 所有配置数据
 const configs = reactive<Record<string, any>>(createDefaultSystemConfigs())
+const logoPreviewLoadFailed = ref(false)
+const logoPreviewUrl = computed(() => normalizeApiAssetUrl(configs.system?.siteLogo))
+const showLogoPreview = computed(() => !!logoPreviewUrl.value && !logoPreviewLoadFailed.value)
+
+watch(() => configs.system?.siteLogo, () => {
+  logoPreviewLoadFailed.value = false
+})
 
 // 选项数据
 const captchaTypeOptions = [
@@ -1817,12 +1824,17 @@ async function handleLogoUpload(options: UploadCustomRequestOptions) {
   try {
     const result = await fileApi.upload(file.file as File)
     configs.system.siteLogo = result.url
+    logoPreviewLoadFailed.value = false
     message.success('Logo上传成功')
     onFinish()
   } catch (error) {
     message.error('Logo上传失败')
     onError()
   }
+}
+
+function handleLogoPreviewError() {
+  logoPreviewLoadFailed.value = true
 }
 
 onMounted(() => {
