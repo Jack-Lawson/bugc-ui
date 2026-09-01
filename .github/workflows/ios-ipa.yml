@@ -1,0 +1,70 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-ipa:
+    name: Build unsigned IPA
+    runs-on: macos-15
+    env:
+      VITE_API_BASE_URL: ${{ vars.IOS_API_BASE_URL || 'https://bugc.top/api' }}
+      VITE_WS_BASE_URL: ${{ vars.IOS_WS_BASE_URL || 'wss://bugc.top' }}
+      VITE_API_TIMEOUT: ${{ vars.IOS_API_TIMEOUT || '45000' }}
+      CAPACITOR_WEB_DIR: dist-ios
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build web assets and sync iOS
+        run: npm run build:ios
+
+      - name: Install CocoaPods dependencies
+        working-directory: ios/App
+        run: pod install --repo-update
+
+      - name: Build iOS app without code signing
+        working-directory: ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build
+
+      - name: Package unsigned IPA
+        working-directory: ios/App
+        run: |
+          APP_PATH="$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$APP_PATH"
+          rm -rf build/Payload build/BugC-unsigned.ipa
+          mkdir -p build/Payload
+          cp -R "$APP_PATH" build/Payload/
+          (cd build && zip -qry BugC-unsigned.ipa Payload)
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BugC-unsigned-ipa
+          path: ios/App/build/BugC-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14

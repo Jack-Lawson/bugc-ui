@@ -3,7 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli'
 const config: CapacitorConfig = {
   appId: 'com.bugc.admin',
   appName: 'BugC',
-  webDir: 'dist-android',
+  webDir: process.env.CAPACITOR_WEB_DIR || 'dist-android',
   server: {
     androidScheme: 'https'
   },
