@@ -7,15 +7,14 @@
         <n-card class="user-card" :bordered="false">
           <div class="avatar-section">
             <div class="avatar-wrapper" @click="triggerUpload">
-              <n-avatar
+              <AppAvatar
                 :key="displayAvatar || 'profile-avatar-empty'"
                 round
                 :size="avatarSize"
-                :src="displayAvatar || undefined"
+                :src="displayAvatar"
+                :fallback="formData.nickname || formData.username || 'U'"
                 class="profile-avatar"
-              >
-                {{ formData.nickname?.charAt(0) || 'U' }}
-              </n-avatar>
+              />
               <div class="avatar-overlay">
                 <n-icon size="22"><CameraOutline /></n-icon>
               </div>
@@ -150,6 +149,7 @@ import { fileApi, userApi } from '@/api/system'
 import { useUserStore } from '@/stores/user'
 import { useResponsive } from '@/composables/useResponsive'
 import { normalizeApiAssetUrl } from '@/config/app'
+import AppAvatar from '@/components/AppAvatar.vue'
 
 const message = useMessage()
 const userStore = useUserStore()

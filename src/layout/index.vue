@@ -211,13 +211,12 @@
           >
             <template #trigger>
             <div class="user-info">
-              <n-avatar
+              <AppAvatar
                 round
                 size="small"
-                :src="userStore.avatar || undefined"
-              >
-                {{ userStore.nickname?.charAt(0) || 'U' }}
-              </n-avatar>
+                :src="userStore.avatar"
+                :fallback="userStore.nickname || 'U'"
+              />
               <span class="user-name">{{ userStore.nickname }}</span>
               <n-icon size="16">
                 <ChevronDownOutline />
@@ -436,6 +435,7 @@ import ProfileModal from '@/components/ProfileModal.vue'
 import PasswordModal from '@/components/PasswordModal.vue'
 import MessageNotification from '@/components/MessageNotification.vue'
 import TabBar from '@/components/TabBar.vue'
+import AppAvatar from '@/components/AppAvatar.vue'
 import { noticeApi, chatApi, type SysNotice, type ChatMessage } from '@/api/message'
 import { iconMap as externalIconMap } from '@/utils/icons'
 import { siteDefaults } from '@/config/app'
